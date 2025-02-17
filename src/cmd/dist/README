@@ -1,0 +1,49 @@
+This program, dist, is the bootstrapping tool for the Go distribution.
+
+As of Go 1.5, dist and other parts of the compiler toolchain are written
+in Go, making bootstrapping a little more involved than in the past.
+The approach is to build the current release of Go with an earlier one.
+
+The process to install Go 1.x, for x ≥ 24, is:
+
+1. Build cmd/dist with Go 1.22.6.
+2. Using dist, build Go 1.x compiler toolchain with Go 1.22.6.
+3. Using dist, rebuild Go 1.x compiler toolchain with itself.
+4. Using dist, build Go 1.x cmd/go (as go_bootstrap) with Go 1.x compiler toolchain.
+5. Using go_bootstrap, build the remaining Go 1.x standard library and commands.
+
+Because of backward compatibility, although the steps above say Go 1.22.6,
+in practice any release ≥ Go 1.22.6 but < Go 1.x will work as the bootstrap base.
+Releases ≥ Go 1.x are very likely to work as well.
+
+See https://go.dev/s/go15bootstrap for more details about the original bootstrap
+and https://go.dev/issue/54265 for details about later bootstrap version bumps.
+
+dist主要用于构建和引导Go编译器工具链
+
+主要命令:
+- banner：打印安装信息
+- bootstrap：重新构建所有内容
+- clean：删除所有构建文件
+- env：打印环境信息
+- install：安装单个目录
+- list：列出所有支持的平台
+- test：运行 Go 测试
+- version：打印 Go 版本
+
+引导过程（从 README 可以看出）：
+- 使用 Go 1.22.6 构建 cmd/dist
+- 使用 dist 和 Go 1.22.6 构建新版本的 Go 编译器工具链
+- 使用 dist 用新版本自身重新构建 Go 编译器工具链
+- 使用 dist 构建 go_bootstrap
+- 使用 go_bootstrap 构建剩余的 Go 标准库和命令
+
+主要职责：
+- 管理构建环境和配置
+- 处理跨平台构建
+- 确保编译器工具链的正确构建
+- 管理依赖关系
+- 执行测试和验证
+
+dist 工具的存在使得 Go 语言能够实现自举（self-hosting），即使用 Go 来构建 Go 自身。这是 Go 1.5 版本之后的重要特性，因为从那时起，Go 编译器工具链就完全用 Go 语言重写了。
+
