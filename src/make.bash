@@ -98,4 +98,3 @@ rm -f cmd/dist/dist
 bootstrapenv "$GOROOT_BOOTSTRAP/bin/go" build -o cmd/dist/dist ./cmd/dist
 
 
-rm -f ./cmd/dist/dist
