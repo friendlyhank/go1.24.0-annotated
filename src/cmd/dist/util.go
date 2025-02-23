@@ -7,24 +7,23 @@ import (
 )
 
 // pathf is fmt.Sprintf for generating paths
-// (on windows it turns / into \ after the printf). 路径信息
+// (on windows it turns / into \ after the printf).
 func pathf(format string, args ...interface{}) string {
 	return filepath.Clean(fmt.Sprintf(format, args...))
 }
 
-// readfile returns the content of the named file. 读取文件
-func readfile(file string) string {
-	data, err := os.ReadFile(file)
+// isdir reports whether p names an existing directory. 文件路径是否存在
+func isdir(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.IsDir()
+}
+
+// xmkdir creates the directory p. 创建目录
+func xmkdir(p string) {
+	err := os.Mkdir(p, 0777)
 	if err != nil {
 		fatalf("%v", err)
 	}
-	return string(data)
-}
-
-// isfile reports whether p names an existing file.判断是否文件
-func isfile(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.Mode().IsRegular()
 }
 
 func fatalf(format string, args ...interface{}) {
@@ -33,12 +32,6 @@ func fatalf(format string, args ...interface{}) {
 	xexit(2)
 }
 
-// xexit - 停止程序
 func xexit(n int) {
 	os.Exit(n)
-}
-
-// xprintf prints a message to standard output.
-func xprintf(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
 }
