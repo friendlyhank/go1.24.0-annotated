@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/go.iml" filepath="$PROJECT_DIR$/.idea/go.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/go1.24.0-annotated.iml" filepath="$PROJECT_DIR$/.idea/go1.24.0-annotated.iml" />
     </modules>
   </component>
 </project>

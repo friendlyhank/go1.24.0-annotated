@@ -97,4 +97,12 @@ fi
 rm -f cmd/dist/dist
 bootstrapenv "$GOROOT_BOOTSTRAP/bin/go" build -o cmd/dist/dist ./cmd/dist
 
+# -e doesn't propagate out of eval, so check success by hand. 捕获执行结果，报错则退出
+eval $(./cmd/dist/dist env -p || echo FAIL=true)
+if [[ "$FAIL" == true ]]; then
+	exit 1
+fi
 
+if $verbose; then
+	echo
+fi
