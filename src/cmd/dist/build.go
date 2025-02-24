@@ -1,8 +1,14 @@
 package main
 
+import (
+	"fmt"
+	"os"
+)
+
 var (
-	gohostos string // 操作系统 如linux、"darwin" (macOS), "windows"
-	goroot   string // go路径 如local/usr/go
+	gohostarch string // 主机架构如amd64、arm64
+	gohostos   string // 操作系统 如linux、"darwin" (macOS), "windows"
+	goroot     string // go路径 如local/usr/go
 
 	rebuildall bool // 重新构建所有依赖
 )
@@ -11,6 +17,11 @@ var (
 func xinit() {
 	// todo hank 这里要重新调整
 	goroot = "/Users/hank/go/src/github.com/friendlyhank/go1.24.0-annotated"
+
+	b := os.Getenv("GOHOSTARCH")
+	if b != "" {
+		gohostarch = b
+	}
 }
 
 // setup sets up the tree for the initial build. go 项目构建
@@ -24,6 +35,9 @@ func setup() {
 	if p := pathf("%s/pkg", goroot); !isdir(p) {
 		xmkdir(p)
 	}
+
+	goosGoarch := pathf("%s/pkg/%s_%s", goroot, gohostos, gohostarch)
+	fmt.Println(goosGoarch)
 }
 
 // clean - 构建go包先进行清理

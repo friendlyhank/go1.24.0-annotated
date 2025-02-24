@@ -17,6 +17,11 @@ func main() {
 
 	gohostos = runtime.GOOS
 
+	// 获取主机架构
+	if gohostarch == "" {
+
+	}
+
 	// 初始化方法
 	xinit()
 	// 对应指令执行
