@@ -55,6 +55,7 @@ if [[ -z "$GOROOT_BOOTSTRAP" ]]; then
       fi
    done
 fi
+# 设置 GOROOT_BOOTSTRAP 环境变量为找到的 Go 安装路径
 export GOROOT_BOOTSTRAP
 
 # 它会设置一个干净的环境（清除所有可能影响 Go 命令执行的环境变量）
@@ -106,3 +107,6 @@ fi
 if $verbose; then
 	echo
 fi
+
+#  dist bootstrap -a构建工具链
+./cmd/dist/dist bootstrap -a $vflag

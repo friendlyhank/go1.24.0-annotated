@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"os"
 )
 
+// todo hank 这里可能需要总结
 var (
 	gohostarch string // 主机架构如amd64、arm64
 	gohostos   string // 操作系统 如linux、"darwin" (macOS), "windows"
@@ -37,7 +37,10 @@ func setup() {
 	}
 
 	goosGoarch := pathf("%s/pkg/%s_%s", goroot, gohostos, gohostarch)
-	fmt.Println(goosGoarch)
+	if rebuildall {
+		xremoveall(goosGoarch)
+	}
+	xmkdirall(goosGoarch)
 }
 
 // clean - 构建go包先进行清理
@@ -54,4 +57,6 @@ func cmdbootstrap() {
 	}
 
 	setup()
+
+	bootstrapBuildTools()
 }
