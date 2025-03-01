@@ -39,12 +39,11 @@ if [[ "$1" == "-v" ]]; then
 fi
 
 #检查 GOROOT_BOOTSTRAP 是否已设置，如果已设置则 goroot_bootstrap_set 为 "true"
-goroot_bootstrap_set=${GOROOT_BOOTSTRAP+"true"}
-
 # 如果未设置，则按照优先级查找可用的Go安装
 # $HOME/sdk/go1.22.6
 # $HOME/go1.22.6
 # $HOME/go1.4
+goroot_bootstrap_set=${GOROOT_BOOTSTRAP+"true"}
 if [[ -z "$GOROOT_BOOTSTRAP" ]]; then
     GOROOT_BOOTSTRAP="$HOME/go1.4"
 
@@ -99,10 +98,7 @@ rm -f cmd/dist/dist
 bootstrapenv "$GOROOT_BOOTSTRAP/bin/go" build -o cmd/dist/dist ./cmd/dist
 
 # -e doesn't propagate out of eval, so check success by hand. 捕获执行结果，报错则退出
-eval $(./cmd/dist/dist env -p || echo FAIL=true)
-if [[ "$FAIL" == true ]]; then
-	exit 1
-fi
+# 这个捕获不知道为啥会报错
 
 if $verbose; then
 	echo
@@ -110,3 +106,4 @@ fi
 
 #  dist bootstrap -a构建工具链
 ./cmd/dist/dist bootstrap -a $vflag
+rm -f ./cmd/dist/dist

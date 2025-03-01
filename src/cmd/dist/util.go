@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -79,6 +82,49 @@ func isdir(p string) bool {
 	return err == nil && fi.IsDir()
 }
 
+// isfile reports whether p names an existing file. 判断目录文件是否存在
+func isfile(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.Mode().IsRegular()
+}
+
+const (
+	writeExec     = 1 << iota // 文件可写和可执行
+	writeSkipSame             // 写入文件跳过相同的内容
+)
+
+// writefile writes text to the named file, creating it if needed. 写入内容到文件
+// if exec is non-zero, marks the file as executable. 如果是writeExec则文件可写和可执行
+// If the file already exists and has the expected content,如果是writeSkipSame，则跳过文件相同内容
+// it is not rewritten, to avoid changing the time stamp.
+func writefile(text, file string, flag int) {
+	new := []byte(text)
+	if flag&writeSkipSame != 0 {
+		old, err := os.ReadFile(file)
+		if err == nil && bytes.Equal(old, new) {
+			return
+		}
+	}
+	mode := os.FileMode(0666)
+	if flag&writeExec != 0 {
+		mode = 0777
+	}
+	xremove(file) // in case of symlink tricks by misc/reboot test 先移除文件
+	err := os.WriteFile(file, new, mode)
+	if err != nil {
+		fatalf("%v", err)
+	}
+}
+
+// readfile returns the content of the named file.读取文件内容
+func readfile(file string) string {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		fatalf("%v", err)
+	}
+	return string(data)
+}
+
 // xmkdir creates the directory p. 创建目录
 func xmkdir(p string) {
 	err := os.Mkdir(p, 0777)
@@ -93,6 +139,11 @@ func xmkdirall(p string) {
 	if err != nil {
 		fatalf("%v", err)
 	}
+}
+
+// xremove removes the file p. 删除指定文件路径
+func xremove(p string) {
+	os.Remove(p)
 }
 
 // xremoveall removes the file or directory tree rooted at p.递归删除位于 p 的文件或目录树。
@@ -115,4 +166,41 @@ func xexit(n int) {
 // xprintf prints a message to standard output. 标准打印输出
 func xprintf(format string, args ...interface{}) {
 	fmt.Printf(format, args...)
+}
+
+// count is a flag.Value that is like a flag.Bool and a flag.Int.
+// If used as -name, it increments the count, but -name=x sets the count.
+// Used for verbose flag -v.
+type count int
+
+func (c *count) String() string {
+	return fmt.Sprint(int(*c))
+}
+
+func (c *count) Set(s string) error {
+	switch s {
+	case "true":
+		*c++
+	case "false":
+		*c = 0
+	default:
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("invalid count %q", s)
+		}
+		*c = count(n)
+	}
+	return nil
+}
+
+func (c *count) IsBoolFlag() bool {
+	return true
+}
+
+func xflagparse(maxargs int) {
+	flag.Var((*count)(&vflag), "v", "verbosity")
+	flag.Parse()
+	if maxargs >= 0 && flag.NArg() > maxargs {
+		flag.Usage()
+	}
 }
