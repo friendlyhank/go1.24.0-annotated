@@ -7,6 +7,78 @@
 
 # Environment variables that control make.bash:
 #
+# GOHOSTARCH: The architecture for host tools (compilers and
+# binaries).  Binaries of this type must be executable on the current
+# system, so the only common reason to set this is to set
+# GOHOSTARCH=386 on an amd64 machine.
+# GOHOSTARCH: 主机工具（编译器和二进制文件）的架构。
+# 这类二进制文件必须能在当前系统上执行，
+# 所以设置它的常见原因是在 amd64 机器上设置 GOHOSTARCH=386。
+#
+# GOARCH: The target architecture for installed packages and tools.安装包和工具的目标架构。
+#
+# GOOS: The target operating system for installed packages and tools.安装包和工具的目标操作系统。
+#
+# GO_GCFLAGS: Additional go tool compile arguments to use when
+# building the packages and commands.
+#
+# GO_LDFLAGS: Additional go tool link arguments to use when
+# building the commands.
+#
+# CGO_ENABLED: Controls cgo usage during the build. Set it to 1
+# to include all cgo related files, .c and .go file with "cgo"
+# build directive, in the build. Set it to 0 to ignore them.
+#
+# GO_EXTLINK_ENABLED: Set to 1 to invoke the host linker when building
+# packages that use cgo.  Set to 0 to do all linking internally.  This
+# controls the default behavior of the linker's -linkmode option.  The
+# default value depends on the system.
+#
+# GO_LDSO: Sets the default dynamic linker/loader (ld.so) to be used
+# by the internal linker.
+#
+# CC: Command line to run to compile C code for GOHOSTARCH.
+# Default is "gcc". Also supported: "clang".
+#
+# CC_FOR_TARGET: Command line to run to compile C code for GOARCH.
+# This is used by cgo. Default is CC.
+#
+# CC_FOR_${GOOS}_${GOARCH}: Command line to run to compile C code for specified ${GOOS} and ${GOARCH}.
+# (for example, CC_FOR_linux_arm)
+# If this is not set, the build will use CC_FOR_TARGET if appropriate, or CC.
+#
+# CXX_FOR_TARGET: Command line to run to compile C++ code for GOARCH.
+# This is used by cgo. Default is CXX, or, if that is not set,
+# "g++" or "clang++".
+#
+# CXX_FOR_${GOOS}_${GOARCH}: Command line to run to compile C++ code for specified ${GOOS} and ${GOARCH}.
+# (for example, CXX_FOR_linux_arm)
+# If this is not set, the build will use CXX_FOR_TARGET if appropriate, or CXX.
+#
+# FC: Command line to run to compile Fortran code for GOARCH.
+# This is used by cgo. Default is "gfortran".
+#
+# PKG_CONFIG: Path to pkg-config tool. Default is "pkg-config".
+#
+# GO_DISTFLAGS: extra flags to provide to "dist bootstrap".
+# (Or just pass them to the make.bash command line.)
+#
+# GOBUILDTIMELOGFILE: If set, make.bash and all.bash write
+# timing information to this file. Useful for profiling where the
+# time goes when these scripts run.
+#GOBUILDTIMELOGFILE: 如果设置，make.bash 和 all.bash 会将时间信息写入此文件。用于分析脚本运行时间的分布。
+
+# GOROOT_BOOTSTRAP: A working Go tree >= Go 1.22.6 for bootstrap.
+# If $GOROOT_BOOTSTRAP/bin/go is missing, $(go env GOROOT) is
+# tried for all "go" in $PATH. By default, one of $HOME/go1.22.6,
+# $HOME/sdk/go1.22.6, or $HOME/go1.4, whichever exists, in that order.
+# We still check $HOME/go1.4 to allow for build scripts that still hard-code
+# that name even though they put newer Go toolchains there.
+# GOROOT_BOOTSTRAP: 用于引导的 Go 目录树，版本 >= Go 1.22.6。
+# 如果 $GOROOT_BOOTSTRAP/bin/go 不存在，会尝试 $PATH 中所有 "go" 的 $(go env GOROOT)。
+# 默认会按顺序查找 $HOME/go1.22.6、$HOME/sdk/go1.22.6 或 $HOME/go1.4 中存在的任意一个。
+# 我们仍然检查 $HOME/go1.4 是为了兼容那些仍然硬编码该名称的构建脚本，
+# 即使它们在那里放置了更新的 Go 工具链。
 
 #构建的最低版本号
 bootgo=1.22.6

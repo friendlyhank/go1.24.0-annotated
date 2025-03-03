@@ -206,7 +206,19 @@ func cmdbootstrap() {
 	defer timelog("end", "dist bootstrap")
 
 	// 重新构建所有
+	var debug, distpack, force, noBanner, noClean bool
+	// rebuildall 标志用于控制是否重建所有内容
 	flag.BoolVar(&rebuildall, "a", rebuildall, "rebuild all")
+	// debug 标志用于控制是否启用引导过程的调试
+	flag.BoolVar(&debug, "d", debug, "enable debugging of bootstrap process")
+	// distpack 标志用于控制是否将分发文件写入 pkg/distpack
+	flag.BoolVar(&distpack, "distpack", distpack, "write distribution files to pkg/distpack")
+	// force 标志用于控制是否强制构建，即使端口被标记为损坏
+	flag.BoolVar(&force, "force", force, "build even if the port is marked as broken")
+	// noBanner 标志用于控制是否不打印横幅
+	flag.BoolVar(&noBanner, "no-banner", noBanner, "do not print banner")
+	// noClean 标志用于控制是否打印过时警告
+	flag.BoolVar(&noClean, "no-clean", noClean, "print deprecation warning")
 
 	xflagparse(0)
 
