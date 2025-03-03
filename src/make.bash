@@ -54,7 +54,7 @@ if [[ -z "$GOROOT_BOOTSTRAP" ]]; then
       fi
    done
 fi
-# 设置 GOROOT_BOOTSTRAP 环境变量为找到的 Go 安装路径
+# 设置 GOROOT_BOOTSTRAP 环境变量为找到的 Go 安装路径 (todo hank 先特殊处理)
 export GOROOT_BOOTSTRAP
 
 # 它会设置一个干净的环境（清除所有可能影响 Go 命令执行的环境变量）
@@ -86,6 +86,7 @@ if [[ ! -x "$GOROOT_BOOTSTRAP/bin/go" ]]; then
 	echo "Set \$GOROOT_BOOTSTRAP to a working Go tree >= Go $bootgo." >&2
 	exit 1
 fi
+
 # Get the exact bootstrap toolchain version to help with debugging.
 # We clear GOOS and GOARCH to avoid an ominous but harmless warning if
 # the bootstrap doesn't support them.

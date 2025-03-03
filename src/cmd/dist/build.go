@@ -1,11 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -155,8 +158,57 @@ func clean() {
 
 }
 
+var (
+	timeLogEnabled = os.Getenv("GOBUILDTIMELOGFILE") != "" //  判断环境变量是否设置耗时日志路径
+	timeLogMu      sync.Mutex
+	timeLogFile    *os.File  // 耗时日志
+	timeLogStart   time.Time // 耗时日志开始时间
+)
+
+// timelog 耗时日志
+func timelog(op, name string) {
+	// 是否开启耗时日志
+	if !timeLogEnabled {
+		return
+	}
+	timeLogMu.Lock()
+	defer timeLogMu.Unlock()
+	if timeLogFile == nil {
+		f, err := os.OpenFile(os.Getenv("GOBUILDTIMELOGFILE"), os.O_RDWR|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatal(err)
+		}
+		// 从日志找到开始时间日志
+		buf := make([]byte, 100)
+		n, _ := f.Read(buf)
+		s := string(buf[:n])
+		if i := strings.Index(s, "\n"); i >= 0 {
+			s = s[:i]
+		}
+		i := strings.Index(s, " start")
+		if i < 0 {
+			log.Fatalf("time log %s does not begin with start line", os.Getenv("GOBUILDTIMELOGFILE"))
+		}
+		t, err := time.Parse(time.UnixDate, s[:i])
+		if err != nil {
+			log.Fatalf("cannot parse time log line %q: %v", s, err)
+		}
+		timeLogStart = t
+		timeLogFile = f
+	}
+	t := time.Now()
+	fmt.Fprintf(timeLogFile, "%s %+.1fs %s %s\n", t.Format(time.UnixDate), t.Sub(timeLogStart).Seconds(), op, name)
+}
+
 // cmdbootstrap - 构建go工具
 func cmdbootstrap() {
+	timelog("start", "dist bootstrap")
+	defer timelog("end", "dist bootstrap")
+
+	// 重新构建所有
+	flag.BoolVar(&rebuildall, "a", rebuildall, "rebuild all")
+
+	xflagparse(0)
 
 	// 重新构建所有
 	if rebuildall {
@@ -165,7 +217,22 @@ func cmdbootstrap() {
 
 	setup()
 
+	// 构建步骤1
+	timelog("build", "toolchain1")
+
 	bootstrapBuildTools()
+
+	timelog("build", "toolchain2")
+	if vflag > 0 {
+		xprintf("\n")
+	}
+	xprintf("Building Go toolchain2 using go_bootstrap and Go toolchain1.\n")
+
+	timelog("build", "toolchain3")
+	if vflag > 0 {
+		xprintf("\n")
+	}
+	xprintf("Building Go toolchain3 using go_bootstrap and Go toolchain2.\n")
 }
 
 // Version prints the Go version. 打印go版本信息
