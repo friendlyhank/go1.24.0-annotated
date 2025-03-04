@@ -264,6 +264,19 @@ func cmdbootstrap() {
 	}
 	xprintf("Building Go toolchain3 using go_bootstrap and Go toolchain2.\n")
 
+	// Check that there are no new files in $GOROOT/bin other than
+	// go and gofmt and $GOOS_$GOARCH (target bin when cross-compiling).
+	// 检查新go文件是否生成成功
+	binFiles, err := filepath.Glob(pathf("%s/bin/*", goroot))
+	if err != nil {
+		fatalf("glob: %v", err)
+	}
+	for _, f := range binFiles {
+		if gohostos == "darwin" && filepath.Base(f) == ".DS_Store" {
+			continue // unfortunate but not unexpected
+		}
+	}
+
 	// 需要横幅
 	if !noBanner {
 		banner()
