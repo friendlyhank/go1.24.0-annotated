@@ -14,9 +14,13 @@ import (
 
 // todo hank 这里可能需要总结
 var (
-	gohostarch string // 主机架构如amd64、arm64
-	gohostos   string // 操作系统 如linux、"darwin" (macOS), "windows"
-	goroot     string // go路径 如local/usr/go
+	goarch      string // 表示目标架构 如amd64、arm64
+	gorootBin   string // 需要目标安装的bin路径
+	gorootBinGo string // 需要目标的go包文件路径
+	gohostarch  string // 表示当前编译主机架构如amd64、arm64
+	gohostos    string // 表示当前编译运行的操作系统 如linux、"darwin" (macOS), "windows"
+	goos        string // 表示目标操作系统的类型，即你希望编译生成的程序运行的操作系统(允许交叉编译)
+	goroot      string // 需要目标安装的go路径 如local/usr/go
 
 	rebuildall bool // 重新构建所有依赖
 
@@ -28,10 +32,24 @@ func xinit() {
 	// todo hank 这里要重新调整
 	goroot = "/Users/hank/go/src/github.com/friendlyhank/go1.24.0-annotated"
 
+	gorootBin = pathf("%s/bin", goroot)
+
+	// Don't run just 'go' because the build infrastructure
+	// runs cmd/dist inside go/bin often, and on Windows
+	// it will be found in the current directory and refuse to exec.
+	// All exec calls rewrite "go" into gorootBinGo.
+	gorootBinGo = pathf("%s/bin/go", goroot)
+
 	b := os.Getenv("GOHOSTARCH")
 	if b != "" {
 		gohostarch = b
 	}
+
+	b = os.Getenv("GOARCH")
+	if b == "" {
+		b = gohostarch
+	}
+	goarch = b
 }
 
 // Remove trailing spaces. 删除尾部空格信息
@@ -245,6 +263,21 @@ func cmdbootstrap() {
 		xprintf("\n")
 	}
 	xprintf("Building Go toolchain3 using go_bootstrap and Go toolchain2.\n")
+
+	// 需要横幅
+	if !noBanner {
+		banner()
+	}
+}
+
+// banner - 构建包成功，打印横幅
+func banner() {
+	if vflag > 0 {
+		xprintf("\n")
+	}
+	xprintf("---\n")
+	xprintf("Installed Go for %s/%s in %s\n", goos, goarch, goroot)
+	xprintf("Installed commands in %s\n", gorootBin)
 }
 
 // Version prints the Go version. 打印go版本信息
