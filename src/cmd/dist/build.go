@@ -21,6 +21,8 @@ var (
 	gohostos    string // 表示当前编译运行的操作系统 如linux、"darwin" (macOS), "windows"
 	goos        string // 表示目标操作系统的类型，即你希望编译生成的程序运行的操作系统(允许交叉编译)
 	goroot      string // 需要目标安装的go路径 如local/usr/go
+	workdir     string // 这个不确定具体做啥
+	tooldir     string // 工具库路径(todo hank 这个还不知道具体做啥)
 
 	rebuildall bool // 重新构建所有依赖
 
@@ -50,6 +52,22 @@ func xinit() {
 		b = gohostarch
 	}
 	goarch = b
+
+	// 编译go文件生成临时的工作目录
+	workdir = xworkdir()
+	// 程序停止时销毁临时的工作目录
+	xatexit(rmworkdir) // todo hank 临时关闭
+
+	// 工具地址
+	tooldir = pathf("%s/pkg/tool/%s_%s", goroot, gohostos, gohostarch)
+}
+
+// rmworkdir deletes the work directory.删除临时的工作目录
+func rmworkdir() {
+	if vflag > 1 {
+		errprintf("rm -rf %s\n", workdir)
+	}
+	xremoveall(workdir)
 }
 
 // Remove trailing spaces. 删除尾部空格信息
@@ -169,6 +187,13 @@ func setup() {
 		xremoveall(goosGoarch)
 	}
 	xmkdirall(goosGoarch)
+
+	// Create tool directory.
+	// We keep it in pkg/, just like the object directory above.
+	if rebuildall {
+		xremoveall(tooldir)
+	}
+	xmkdirall(tooldir)
 }
 
 // clean - 构建go包先进行清理
@@ -218,6 +243,15 @@ func timelog(op, name string) {
 	fmt.Fprintf(timeLogFile, "%s %+.1fs %s %s\n", t.Format(time.UnixDate), t.Sub(timeLogStart).Seconds(), op, name)
 }
 
+// toolenv - 工具构建的环境
+func toolenv() []string {
+	var env []string
+	return env
+}
+
+// 工具链包
+var toolchain = []string{"cmd/asm", "cmd/cgo", "cmd/compile", "cmd/link", "cmd/preprofile"}
+
 // cmdbootstrap - 构建go工具
 func cmdbootstrap() {
 	timelog("start", "dist bootstrap")
@@ -252,6 +286,18 @@ func cmdbootstrap() {
 
 	bootstrapBuildTools()
 
+	goos = gohostos
+
+	// For the main bootstrap, building for host os/arch.
+	timelog("build", "go_bootstrap")
+	xprintf("Building Go bootstrap cmd/go (go_bootstrap) using Go toolchain1.\n")
+
+	if vflag > 0 {
+		xprintf("\n")
+	}
+
+	goBootstrap := pathf("%s/go_bootstrap", tooldir)
+
 	timelog("build", "toolchain2")
 	if vflag > 0 {
 		xprintf("\n")
@@ -263,6 +309,8 @@ func cmdbootstrap() {
 		xprintf("\n")
 	}
 	xprintf("Building Go toolchain3 using go_bootstrap and Go toolchain2.\n")
+
+	goInstall(toolenv(), goBootstrap, "cmd")
 
 	// Check that there are no new files in $GOROOT/bin other than
 	// go and gofmt and $GOOS_$GOARCH (target bin when cross-compiling).
@@ -281,6 +329,15 @@ func cmdbootstrap() {
 	if !noBanner {
 		banner()
 	}
+}
+
+func goInstall(env []string, goBinary string, args ...string) {
+	goCmd(env, goBinary, "install", args...)
+}
+
+func goCmd(env []string, goBinary string, cmd string, args ...string) {
+	goCmd := []string{goBinary, cmd}
+	runEnv(workdir, ShowOutput|CheckExit, env, append(goCmd, args...)...)
 }
 
 // banner - 构建包成功，打印横幅

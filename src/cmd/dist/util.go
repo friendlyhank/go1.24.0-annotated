@@ -151,6 +151,16 @@ func xremoveall(p string) {
 	os.RemoveAll(p)
 }
 
+// xworkdir creates a new temporary directory to hold object files 创建临时的工作目录
+// and returns the name of that directory.
+func xworkdir() string {
+	name, err := os.MkdirTemp(os.Getenv("GOTMPDIR"), "go-tool-dist-")
+	if err != nil {
+		fatalf("%v", err)
+	}
+	return name
+}
+
 // fatalf prints an error message to standard error and exits. 标准的输出错误并停止程序
 func fatalf(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "go tool dist: %s\n", fmt.Sprintf(format, args...))
@@ -158,14 +168,31 @@ func fatalf(format string, args ...interface{}) {
 	xexit(2)
 }
 
+var atexits []func() // 记录程序停止需要执行的方法
+
 // xexit exits the process with return code n. 停止程序，返回错误码
 func xexit(n int) {
+	// 程序停止，执行对应要执行的方法
+	for i := len(atexits) - 1; i >= 0; i-- {
+		atexits[i]()
+	}
 	os.Exit(n)
+}
+
+// xatexit schedules the exit-handler f to be run when the program exits.
+// xatexit 调度退出处理程序 f 以在程序退出时运行。
+func xatexit(f func()) {
+	atexits = append(atexits, f)
 }
 
 // xprintf prints a message to standard output. 标准打印输出
 func xprintf(format string, args ...interface{}) {
 	fmt.Printf(format, args...)
+}
+
+// errprintf prints a message to standard output. 标准打印输出
+func errprintf(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, args...)
 }
 
 // count is a flag.Value that is like a flag.Bool and a flag.Int.
