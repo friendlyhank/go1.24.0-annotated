@@ -35,6 +35,10 @@ var commands = map[string]func(){
 func main() {
 
 	gohostos = runtime.GOOS
+	switch gohostos {
+	case "windows":
+		exe = ".exe"
+	}
 
 	// 获取主机架构
 	if gohostarch == "" {

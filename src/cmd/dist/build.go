@@ -23,6 +23,7 @@ var (
 	goroot      string // 需要目标安装的go路径 如local/usr/go
 	workdir     string // 这个不确定具体做啥
 	tooldir     string // 工具库路径(todo hank 这个还不知道具体做啥)
+	exe         string // window的程序后缀
 
 	rebuildall bool // 重新构建所有依赖
 
@@ -196,6 +197,64 @@ func setup() {
 	xmkdirall(tooldir)
 }
 
+// installed maps from a dir name (as given to install) to a chan
+// closed when the dir's package is installed.
+var installed = make(map[string]chan struct{})
+var installedMu sync.Mutex
+
+// 同目录不能并发安装 todo hank 这种写法可以参考学习
+func install(dir string) {
+	<-startInstall(dir)
+}
+
+// startInstall - 用chan方式开始安装程序
+func startInstall(dir string) chan struct{} {
+	installedMu.Lock()
+	ch := installed[dir]
+	if ch == nil {
+		ch = make(chan struct{})
+		installed[dir] = ch
+		go runInstall(dir, ch)
+	}
+	installedMu.Unlock()
+	return ch
+}
+
+// runInstall installs the library, package, or binary associated with pkg,
+// runInstall 安装与 pkg 关联的库、包或二进制文件，
+// which is relative to $GOROOT/src.
+// pkg 是相对于 $GOROOT/src 的路径。
+func runInstall(pkg string, ch chan struct{}) {
+	defer close(ch)
+	if vflag > 0 {
+		errprintf("%s\n", pkg)
+	}
+
+	// 创建安装的工作目录
+	workdir := pathf("%s/%s", workdir, pkg)
+	xmkdirall(workdir)
+
+	// dir = full path to pkg.
+	dir := pathf("%s/src/%s", goroot, pkg)
+	name := filepath.Base(dir)
+
+	var (
+		link []string
+	)
+
+	// Go command.
+	elem := name
+	// 如果安装的是cmd/go
+	if elem == "go" {
+		elem = "go_bootstrap"
+	}
+	link = []string{pathf("%s/link", tooldir)}
+	link = append(link, "-extld=")                                                          // 指定不使用外部链接器
+	link = append(link, "-L="+pathf("%s/pkg/obj/go-bootstrap/%s_%s", goroot, goos, goarch)) // 指定链接器链接对象文件路径
+	link = append(link, "-o", pathf("%s/%s%s", tooldir, elem, exe))                         // 二进制文件输出路径
+	fmt.Println(link)
+}
+
 // clean - 构建go包先进行清理
 func clean() {
 
@@ -291,7 +350,8 @@ func cmdbootstrap() {
 	// For the main bootstrap, building for host os/arch.
 	timelog("build", "go_bootstrap")
 	xprintf("Building Go bootstrap cmd/go (go_bootstrap) using Go toolchain1.\n")
-
+	// 安装src/cmd/go 这里会生成go_bootstrap二进制文件，go_bootstrap最终生成bin/go
+	install("cmd/go")
 	if vflag > 0 {
 		xprintf("\n")
 	}
@@ -310,6 +370,7 @@ func cmdbootstrap() {
 	}
 	xprintf("Building Go toolchain3 using go_bootstrap and Go toolchain2.\n")
 
+	// 首先会生成goBootstrap二进制文件,然后执行这个二进制文件生成goBinary
 	goInstall(toolenv(), goBootstrap, "cmd")
 
 	// Check that there are no new files in $GOROOT/bin other than
