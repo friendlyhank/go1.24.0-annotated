@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -191,10 +192,17 @@ func setup() {
 
 	// Create tool directory.
 	// We keep it in pkg/, just like the object directory above.
-	if rebuildall {
-		xremoveall(tooldir)
-	}
-	xmkdirall(tooldir)
+	// todo hank 暂时先关闭
+	//if rebuildall {
+	//	xremoveall(tooldir)
+	//}
+	//xmkdirall(tooldir)
+}
+
+// depsuffix records the allowed suffixes for source files. 查找允许安装的前缀文件
+var depsuffix = []string{
+	".s",
+	".go",
 }
 
 // installed maps from a dir name (as given to install) to a chan
@@ -225,7 +233,14 @@ func startInstall(dir string) chan struct{} {
 // which is relative to $GOROOT/src.
 // pkg 是相对于 $GOROOT/src 的路径。
 func runInstall(pkg string, ch chan struct{}) {
+
 	defer close(ch)
+
+	// unsafe 包不需要安装
+	if pkg == "unsafe" {
+		return
+	}
+
 	if vflag > 0 {
 		errprintf("%s\n", pkg)
 	}
@@ -234,25 +249,124 @@ func runInstall(pkg string, ch chan struct{}) {
 	workdir := pathf("%s/%s", workdir, pkg)
 	xmkdirall(workdir)
 
-	// dir = full path to pkg.
+	// 清理列表，用于存储需要清理的文件
+	var clean []string
+	defer func() {
+		for _, name := range clean {
+			xremove(name)
+		}
+	}()
+
+	// dir = full path to pkg. 获取完整的包路径
 	dir := pathf("%s/src/%s", goroot, pkg)
 	name := filepath.Base(dir)
 
+	// ispkg predicts whether the package should be linked as a binary, based
+	// on the name. There should be no "main" packages in vendor, since
+	// 'go mod vendor' will only copy imported packages there.
+	// 判断包是否应该被链接为二进制文件
+	// 如果包路径不以 cmd/ 开头，或者包含 /internal/ 或 /vendor/，则视为库包
+	ispkg := !strings.HasPrefix(pkg, "cmd/") || strings.Contains(pkg, "/internal/") || strings.Contains(pkg, "/vendor/")
+
 	var (
-		link []string
+		link      []string
+		targ      int
+		ispackcmd bool
 	)
 
-	// Go command.
-	elem := name
-	// 如果安装的是cmd/go
-	if elem == "go" {
-		elem = "go_bootstrap"
+	if ispkg {
+		// 如果是库包，使用 pack 命令打包
+	} else {
+		// Go command.
+		elem := name
+		// 如果安装的是cmd/go
+		if elem == "go" {
+			elem = "go_bootstrap"
+		}
+		link = []string{pathf("%s/link", tooldir)}
+		link = append(link, "-extld=")                                                          // 指定不使用外部链接器
+		link = append(link, "-L="+pathf("%s/pkg/obj/go-bootstrap/%s_%s", goroot, goos, goarch)) // 指定链接器链接对象文件路径
+		link = append(link, "-o", pathf("%s/%s%s", tooldir, elem, exe))                         // 二进制文件输出路径
+		targ = len(link) - 1
 	}
-	link = []string{pathf("%s/link", tooldir)}
-	link = append(link, "-extld=")                                                          // 指定不使用外部链接器
-	link = append(link, "-L="+pathf("%s/pkg/obj/go-bootstrap/%s_%s", goroot, goos, goarch)) // 指定链接器链接对象文件路径
-	link = append(link, "-o", pathf("%s/%s%s", tooldir, elem, exe))                         // 二进制文件输出路径
-	fmt.Println(link)
+
+	files := xreaddir(dir)
+
+	// Convert to absolute paths.转换为绝对路径
+	for i, p := range files {
+		if !filepath.IsAbs(p) {
+			files[i] = pathf("%s/%s", dir, p)
+		}
+	}
+
+	var gofiles []string
+	files = filter(files, func(p string) bool {
+		for _, suf := range depsuffix {
+			if strings.HasSuffix(p, suf) {
+				goto ok
+			}
+		}
+		return false
+	ok:
+		if strings.HasSuffix(p, ".go") {
+			gofiles = append(gofiles, p)
+		}
+		return true
+	})
+
+	// If there are no files to compile, we're done.
+	if len(files) == 0 {
+		return
+	}
+
+	// Resolve imported packages to actual package paths. 将导入的包解析为实际的包路径
+	//  确保他们已安装
+	// Make sure they're installed.
+	importMap := make(map[string]string)
+	for _, p := range gofiles {
+		// 读取要编译安装的go文件导入包的信息
+		for _, imp := range readimports(p) {
+			importMap[imp] = dir
+		}
+	}
+
+	// Build an importcfg file for the compiler. 构造用于编译的importcfg文件
+	buf := &bytes.Buffer{}
+	importcfg := pathf("%s/importcfg", workdir)
+	if err := os.WriteFile(importcfg, buf.Bytes(), 0666); err != nil {
+		fatalf("cannot write importcfg file: %v", err)
+	}
+
+	// The next loop will compile individual non-Go files.
+	// Hand the Go files to the compiler en masse.
+	// For packages containing assembly, this writes go_asm.h, which
+	// the assembly files will need.
+	pkgName := pkg
+	if strings.HasPrefix(pkg, "cmd/") && strings.Count(pkg, "/") == 1 {
+		pkgName = "main"
+	}
+	b := pathf("%s/_go_.a", workdir)
+	clean = append(clean, b)
+	if !ispackcmd {
+		link = append(link, b)
+	}
+
+	// Compile Go code. 编译go代码
+	compile := []string{pathf("%s/compile", tooldir), "-std", "-pack", "-o", b, "-p", pkgName, "-importcfg", importcfg}
+
+	compile = append(compile, gofiles...)
+	var wg sync.WaitGroup
+	// We use bgrun and immediately wait for it instead of calling run() synchronously.
+	// This executes all jobs through the bgwork channel and allows the process
+	// to exit cleanly in case an error occurs.
+	bgrun(&wg, dir, compile...)
+	bgwait(&wg)
+
+	// Remove target before writing it. 删除旧的目标文件
+	// 执行link相关指令
+	xremove(link[targ])
+	bgrun(&wg, "", link...)
+	bgwait(&wg)
 }
 
 // clean - 构建go包先进行清理

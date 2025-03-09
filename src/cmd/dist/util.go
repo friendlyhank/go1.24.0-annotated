@@ -10,12 +10,26 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // pathf is fmt.Sprintf for generating paths
 // (on windows it turns / into \ after the printf).
 func pathf(format string, args ...interface{}) string {
 	return filepath.Clean(fmt.Sprintf(format, args...))
+}
+
+// filter returns a slice containing the elements x from list for which f(x) == true.
+//
+//	过滤切片中需要的元素
+func filter(list []string, f func(string) bool) []string {
+	var out []string
+	for _, x := range list {
+		if f(x) {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 const (
@@ -76,6 +90,72 @@ func runEnv(dir string, mode int, env []string, cmd ...string) string {
 	return string(data)
 }
 
+var maxbg = 4 /* maximum number of jobs to run at once */
+
+var (
+	bgwork = make(chan func(), 1e5) // 后台工作异步进程
+
+	bghelpers sync.WaitGroup
+
+	dying = make(chan struct{}) // 正在进行状态
+)
+
+// bginit - 后台进程初始化
+func bginit() {
+	bghelpers.Add(maxbg)
+	for i := 0; i < maxbg; i++ {
+		go bghelper()
+	}
+}
+
+func bghelper() {
+	defer bghelpers.Done()
+	for {
+		select {
+		case <-dying:
+			return
+		case w := <-bgwork:
+			// Dying takes precedence over doing more work.
+			select {
+			case <-dying:
+				return
+			default:
+				w()
+			}
+		}
+	}
+}
+
+// bgrun is like run but runs the command in the background.
+// CheckExit|ShowOutput mode is implied (since output cannot be returned).
+// bgrun adds 1 to wg immediately, and calls Done when the work completes.
+// 异步执行指令
+func bgrun(wg *sync.WaitGroup, dir string, cmd ...string) {
+	wg.Add(1)
+	bgwork <- func() {
+		defer wg.Done()
+		run(dir, CheckExit|ShowOutput|Background, cmd...)
+	}
+}
+
+// bgwait waits for pending bgruns to finish.
+// bgwait must be called from only a single goroutine at a time.
+// 等待后台程序执行完成
+func bgwait(wg *sync.WaitGroup) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-dying:
+		// Don't return to the caller, to avoid reporting additional errors
+		// to the user.
+		select {}
+	}
+}
+
 // isdir reports whether p names an existing directory. 文件路径是否存在
 func isdir(p string) bool {
 	fi, err := os.Stat(p)
@@ -116,6 +196,15 @@ func writefile(text, file string, flag int) {
 	}
 }
 
+// mtime returns the modification time of the file p. 获取文件下修改时间
+func mtime(p string) time.Time {
+	fi, err := os.Stat(p)
+	if err != nil {
+		return time.Time{}
+	}
+	return fi.ModTime()
+}
+
 // readfile returns the content of the named file.读取文件内容
 func readfile(file string) string {
 	data, err := os.ReadFile(file)
@@ -149,6 +238,23 @@ func xremove(p string) {
 // xremoveall removes the file or directory tree rooted at p.递归删除位于 p 的文件或目录树。
 func xremoveall(p string) {
 	os.RemoveAll(p)
+}
+
+// xreaddir replaces dst with a list of the names of the files and subdirectories in dir.
+// The names are relative to dir; they are not full paths.
+// xreaddir 读取指定目录中的文件和子目录的名称。
+// 返回的名称是相对于给定目录的，不包含完整路径。
+func xreaddir(dir string) []string {
+	f, err := os.Open(dir)
+	if err != nil {
+		fatalf("%v", err)
+	}
+	defer f.Close()
+	names, err := f.Readdirnames(-1)
+	if err != nil {
+		fatalf("reading %s: %v", dir, err)
+	}
+	return names
 }
 
 // xworkdir creates a new temporary directory to hold object files 创建临时的工作目录
