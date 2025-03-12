@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -290,6 +291,7 @@ func runInstall(pkg string, ch chan struct{}) {
 		targ = len(link) - 1
 	}
 
+	// 读取要安装目录下的文件信息
 	files := xreaddir(dir)
 
 	// Convert to absolute paths.转换为绝对路径
@@ -326,12 +328,24 @@ func runInstall(pkg string, ch chan struct{}) {
 	for _, p := range gofiles {
 		// 读取要编译安装的go文件导入包的信息
 		for _, imp := range readimports(p) {
-			importMap[imp] = dir
+			importMap[imp] = resolveVendor(imp, dir)
 		}
 	}
+	sortedImports := make([]string, 0, len(importMap))
+	for imp := range importMap {
+		sortedImports = append(sortedImports, imp)
+	}
+	sort.Strings(sortedImports)
 
 	// Build an importcfg file for the compiler. 构造用于编译的importcfg文件
 	buf := &bytes.Buffer{}
+	for _, imp := range sortedImports {
+		if imp == "unsafe" {
+			continue
+		}
+		dep := importMap[imp]
+		fmt.Fprintf(buf, "packagefile %s=%s\n", dep, packagefile(dep))
+	}
 	importcfg := pathf("%s/importcfg", workdir)
 	if err := os.WriteFile(importcfg, buf.Bytes(), 0666); err != nil {
 		fatalf("cannot write importcfg file: %v", err)
@@ -353,7 +367,6 @@ func runInstall(pkg string, ch chan struct{}) {
 
 	// Compile Go code. 编译go代码
 	compile := []string{pathf("%s/compile", tooldir), "-std", "-pack", "-o", b, "-p", pkgName, "-importcfg", importcfg}
-
 	compile = append(compile, gofiles...)
 	var wg sync.WaitGroup
 	// We use bgrun and immediately wait for it instead of calling run() synchronously.
@@ -367,6 +380,13 @@ func runInstall(pkg string, ch chan struct{}) {
 	xremove(link[targ])
 	bgrun(&wg, "", link...)
 	bgwait(&wg)
+}
+
+// packagefile returns the path to a compiled .a file for the given package
+// path. Paths may need to be resolved with resolveVendor first.
+// 对应静态库包(其实就是go导入的包)
+func packagefile(pkg string) string {
+	return pathf("%s/pkg/obj/go-bootstrap/%s_%s/%s.a", goroot, goos, goarch, pkg)
 }
 
 // clean - 构建go包先进行清理

@@ -4,8 +4,14 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 )
+
+/*
+ * 通过读取文件，获取需要导入的包
+ */
 
 // importReader - 读取导入的包
 type importReader struct {
@@ -15,6 +21,10 @@ type importReader struct {
 	err  error  // 读取过程发生的错误
 	eof  bool   // 表示是否已经到达输入流的末尾（EOF）
 	nerr int    // 记录错误的额数量
+}
+
+func isIdent(c byte) bool {
+	return 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' || c == '_' || c >= utf8.RuneSelf
 }
 
 var (
@@ -124,6 +134,73 @@ func (r *importReader) readKeyword(kw string) {
 			return
 		}
 	}
+	if isIdent(r.peekByte(false)) {
+		r.syntaxError()
+	}
+}
+
+// readIdent reads an identifier from the input.
+// If an identifier is not present, readIdent records a syntax error.
+func (r *importReader) readIdent() {
+	c := r.peekByte(true)
+	if !isIdent(c) {
+		r.syntaxError()
+		return
+	}
+	for isIdent(r.peekByte(false)) {
+		r.peek = 0
+	}
+}
+
+// readString reads a quoted string literal from the input.
+// If an identifier is not present, readString records a syntax error.
+func (r *importReader) readString(save *[]string) {
+	switch r.nextByte(true) {
+	case '`':
+		start := len(r.buf) - 1
+		for r.err == nil {
+			if r.nextByte(false) == '`' {
+				if save != nil {
+					*save = append(*save, string(r.buf[start:]))
+				}
+				break
+			}
+			if r.eof {
+				r.syntaxError()
+			}
+		}
+	case '"':
+		start := len(r.buf) - 1
+		for r.err == nil {
+			c := r.nextByte(false)
+			if c == '"' {
+				if save != nil {
+					*save = append(*save, string(r.buf[start:]))
+				}
+				break
+			}
+			if r.eof || c == '\n' {
+				r.syntaxError()
+			}
+			if c == '\\' {
+				r.nextByte(false)
+			}
+		}
+	default:
+		r.syntaxError()
+	}
+}
+
+// readImport reads an import clause - optional identifier followed by quoted string -
+// from the input.
+func (r *importReader) readImport(imports *[]string) {
+	c := r.peekByte(true)
+	if c == '.' {
+		r.peek = 0
+	} else if isIdent(c) {
+		r.readIdent()
+	}
+	r.readString(imports)
 }
 
 // readimports returns the imports found in the named file.
@@ -132,5 +209,51 @@ func readimports(file string) []string {
 	var imports []string
 	r := &importReader{b: bufio.NewReader(strings.NewReader(readfile(file)))}
 	r.readKeyword("package")
+	r.readIdent()
+	for r.peekByte(true) == 'i' {
+		r.readKeyword("import")
+		if r.peekByte(true) == '(' {
+			r.nextByte(false)
+			for r.peekByte(true) != ')' && r.err == nil {
+				r.readImport(&imports)
+			}
+			r.nextByte(false)
+		} else {
+			r.readImport(&imports)
+		}
+	}
+
+	for i := range imports {
+		unquoted, err := strconv.Unquote(imports[i])
+		if err != nil {
+			fatalf("reading imports from %s: %v", file, err)
+		}
+		imports[i] = unquoted
+	}
+
 	return imports
+}
+
+// resolveVendor returns a unique package path imported with the given import
+// path from srcDir.
+//
+// resolveVendor assumes that a package is vendored if and only if its first
+// path component contains a dot. If a package is vendored, its import path
+// is returned with a "vendor" or "cmd/vendor" prefix, depending on srcDir.
+// Otherwise, the import path is returned verbatim.
+//
+//	// 功能：处理 Go 模块的 vendor 机制，返回经过 vendor 路径修正的导入路径
+func resolveVendor(imp, srcDir string) string {
+	var first string
+	// 判断导入包的路径又没/
+	if i := strings.Index(imp, "/"); i < 0 {
+		first = imp
+	} else {
+		first = imp[:i]
+	}
+	isStandard := !strings.Contains(first, ".")
+	if isStandard {
+		return imp
+	}
+	return ""
 }
