@@ -97,14 +97,14 @@ var (
 
 	bghelpers sync.WaitGroup
 
-	dying = make(chan struct{}) // 正在进行状态
+	dying = make(chan struct{}) // 终止信号
 )
 
 // bginit - 后台进程初始化
 func bginit() {
 	bghelpers.Add(maxbg)
 	for i := 0; i < maxbg; i++ {
-		go bghelper()
+		go bghelper() // 启动4个常驻工作协程
 	}
 }
 
@@ -112,15 +112,15 @@ func bghelper() {
 	defer bghelpers.Done()
 	for {
 		select {
-		case <-dying:
+		case <-dying: // 终止信号会return
 			return
-		case w := <-bgwork:
+		case w := <-bgwork: // 从队列中获取任务
 			// Dying takes precedence over doing more work.
 			select {
 			case <-dying:
 				return
 			default:
-				w()
+				w() // 执行具体的任务
 			}
 		}
 	}
