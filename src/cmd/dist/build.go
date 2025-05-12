@@ -59,7 +59,7 @@ func xinit() {
 	// 编译go文件生成临时的工作目录
 	workdir = xworkdir()
 	// 程序停止时销毁临时的工作目录
-	xatexit(rmworkdir) // todo hank 临时关闭
+	xatexit(rmworkdir)
 
 	// 工具地址
 	tooldir = pathf("%s/pkg/tool/%s_%s", goroot, gohostos, gohostarch)
@@ -193,11 +193,10 @@ func setup() {
 
 	// Create tool directory.
 	// We keep it in pkg/, just like the object directory above.
-	// todo hank 暂时先关闭
-	//if rebuildall {
-	//	xremoveall(tooldir)
-	//}
-	//xmkdirall(tooldir)
+	if rebuildall {
+		xremoveall(tooldir)
+	}
+	xmkdirall(tooldir)
 }
 
 // depsuffix records the allowed suffixes for source files. 查找允许安装的前缀文件
