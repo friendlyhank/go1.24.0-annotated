@@ -24,7 +24,7 @@ var (
 	goos        string // 表示目标操作系统的类型，即你希望编译生成的程序运行的操作系统(允许交叉编译)
 	goroot      string // 需要目标安装的go路径 如local/usr/go
 	workdir     string // 这个不确定具体做啥
-	tooldir     string // 工具库路径(todo hank 这个还不知道具体做啥)
+	tooldir     string // 工具库路径(编译好的各种工具地址，这个路径要关注，构建go包不可缺少的)
 	exe         string // window的程序后缀
 
 	rebuildall bool // 重新构建所有依赖
@@ -444,7 +444,7 @@ func toolenv() []string {
 // 工具链包
 var toolchain = []string{"cmd/asm", "cmd/cgo", "cmd/compile", "cmd/link", "cmd/preprofile"}
 
-// cmdbootstrap - 构建go工具
+// cmdbootstrap - 构建go工具(关键go工具生成代码)
 func cmdbootstrap() {
 	timelog("start", "dist bootstrap")
 	defer timelog("end", "dist bootstrap")
@@ -476,6 +476,7 @@ func cmdbootstrap() {
 	// 构建步骤1
 	timelog("build", "toolchain1")
 
+	// 用于构建 Go tool工具链
 	bootstrapBuildTools()
 
 	goos = gohostos

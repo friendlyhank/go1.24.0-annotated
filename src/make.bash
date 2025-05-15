@@ -178,5 +178,5 @@ if $verbose; then
 fi
 
 #  dist bootstrap -a构建工具链
-./cmd/dist/dist bootstrap -a $vflag
+./cmd/dist/dist bootstrap -a $vflag "$@"
 rm -f ./cmd/dist/dist

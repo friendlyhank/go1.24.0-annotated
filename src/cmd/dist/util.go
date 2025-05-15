@@ -53,6 +53,10 @@ func run(dir string, mode int, cmd ...string) string {
 // Background job. Only bgrun should use the Background mode, 仅 bgrun 应该使用 Background 模式，其他调用者不应使用。
 // not other callers.
 func runEnv(dir string, mode int, env []string, cmd ...string) string {
+	// 打印详细的命令输出
+	if vflag > 1 {
+		errprintf("run: %s\n", strings.Join(cmd, " "))
+	}
 	xcmd := exec.Command(cmd[0], cmd[1:]...)
 
 	var data []byte
