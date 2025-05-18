@@ -58,6 +58,8 @@ func runEnv(dir string, mode int, env []string, cmd ...string) string {
 		errprintf("run: %s\n", strings.Join(cmd, " "))
 	}
 	xcmd := exec.Command(cmd[0], cmd[1:]...)
+	// 设置命令运行目录，这样才能读取到对应的文件
+	setDir(xcmd, dir)
 
 	var data []byte
 	var err error
@@ -90,6 +92,10 @@ func runEnv(dir string, mode int, env []string, cmd ...string) string {
 		outputLock.Lock()
 		os.Stdout.Write(data)
 		outputLock.Unlock()
+	}
+	// 打印执行完成日志
+	if vflag > 2 {
+		errprintf("run: %s DONE\n", strings.Join(cmd, " "))
 	}
 	return string(data)
 }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -161,6 +162,35 @@ func findgoversion() string {
 	return version
 }
 
+// goModVersion returns the go version declared in src/go.mod. This is the
+// go version to use in the go.mod building go_bootstrap, toolchain2, and toolchain3.
+// (toolchain1 must be built with requiredBootstrapVersion(goModVersion))
+// 根据src/go.mod的文件将会生成新的go.mod文件被用于go_bootstrap, toolchain2, and toolchain3工具链的生成
+func goModVersion() string {
+	goMod := readfile(pathf("%s/src/go.mod", goroot))
+	m := regexp.MustCompile(`(?m)^go (1.\d+)$`).FindStringSubmatch(goMod)
+	if m == nil {
+		fatalf("std go.mod does not contain go 1.X")
+	}
+	return m[1]
+}
+
+// requiredBootstrapVersion 用于编译工具链的版本
+func requiredBootstrapVersion(v string) string {
+	minorstr, ok := strings.CutPrefix(v, "1.")
+	if !ok {
+		fatalf("go version %q in go.mod does not start with %q", v, "1.")
+	}
+	minor, err := strconv.Atoi(minorstr)
+	if err != nil {
+		fatalf("invalid go version minor component %q: %v", minorstr, err)
+	}
+	// Per go.dev/doc/install/source, for N >= 22, Go version 1.N will require a Go 1.M compiler,
+	// where M is N-2 rounded down to an even number. Example: Go 1.24 and 1.25 require Go 1.22.
+	requiredMinor := minor - 2 - minor%2
+	return "1." + strconv.Itoa(requiredMinor)
+}
+
 // isGitRepo reports whether the working directory is inside a Git repository. 判断是否git仓库代码
 func isGitRepo() bool {
 	// NB: simply checking the exit code of `git rev-parse --git-dir` would
@@ -193,10 +223,11 @@ func setup() {
 
 	// Create tool directory.
 	// We keep it in pkg/, just like the object directory above.
-	if rebuildall {
-		xremoveall(tooldir)
-	}
-	xmkdirall(tooldir)
+	// todo hank 临时先关闭 工具类路径删除
+	//if rebuildall {
+	//	xremoveall(tooldir)
+	//}
+	//xmkdirall(tooldir)
 }
 
 // depsuffix records the allowed suffixes for source files. 查找允许安装的前缀文件
@@ -485,7 +516,7 @@ func cmdbootstrap() {
 	timelog("build", "go_bootstrap")
 	xprintf("Building Go bootstrap cmd/go (go_bootstrap) using Go toolchain1.\n")
 	// 安装src/cmd/go 这里会生成go_bootstrap二进制文件，go_bootstrap最终生成bin/go
-	install("cmd/go")
+	//install("cmd/go")
 	if vflag > 0 {
 		xprintf("\n")
 	}
