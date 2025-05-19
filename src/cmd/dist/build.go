@@ -523,6 +523,8 @@ func cmdbootstrap() {
 	xprintf("Building Go bootstrap cmd/go (go_bootstrap) using Go toolchain1.\n")
 	// 安装src/cmd/go 这里会生成go_bootstrap二进制文件，go_bootstrap最终生成bin/go
 	install("runtime") // link需要依赖于runtime
+	install("cmd/go")  // go包编译
+
 	//install("cmd/go")
 	if vflag > 0 {
 		xprintf("\n")
@@ -543,7 +545,7 @@ func cmdbootstrap() {
 	xprintf("Building Go toolchain3 using go_bootstrap and Go toolchain2.\n")
 
 	// 首先会生成goBootstrap二进制文件,然后执行这个二进制文件生成goBinary
-	goInstall(toolenv(), goBootstrap, "cmd")
+	//goInstall(toolenv(), goBootstrap, "cmd")
 
 	// Check that there are no new files in $GOROOT/bin other than
 	// go and gofmt and $GOOS_$GOARCH (target bin when cross-compiling).
