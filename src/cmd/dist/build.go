@@ -35,9 +35,11 @@ var (
 
 // xinit handles initialization of the various global state, like goroot and goarch. 初始化全局信息例如goroot
 func xinit() {
-	// todo hank 这里要重新调整
-	goroot = "/Users/hank/go/src/github.com/friendlyhank/go1.24.0-annotated"
-
+	b := os.Getenv("GOROOT")
+	if b == "" {
+		fatalf("$GOROOT must be set")
+	}
+	goroot = filepath.Clean(b)
 	gorootBin = pathf("%s/bin", goroot)
 
 	// Don't run just 'go' because the build infrastructure
@@ -46,7 +48,7 @@ func xinit() {
 	// All exec calls rewrite "go" into gorootBinGo.
 	gorootBinGo = pathf("%s/bin/go", goroot)
 
-	b := os.Getenv("GOHOSTARCH")
+	b = os.Getenv("GOHOSTARCH")
 	if b != "" {
 		gohostarch = b
 	}
