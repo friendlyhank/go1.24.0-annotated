@@ -129,7 +129,7 @@ fi
 # 设置 GOROOT_BOOTSTRAP 环境变量为找到的 Go 安装路径 (todo hank 先特殊处理)
 export GOROOT_BOOTSTRAP
 
-# 它会设置一个干净的环境（清除所有可能影响 Go 命令执行的环境变量）
+# 它会设置一个干净的环境 注意这里会影响到构建的go环境（清除所有可能影响 Go 命令执行的环境变量）
 bootstrapenv() {
 	GOROOT="$GOROOT_BOOTSTRAP" GO111MODULE=off GOENV=off GOOS= GOARCH= GOEXPERIMENT= GOFLAGS= "$@"
 }

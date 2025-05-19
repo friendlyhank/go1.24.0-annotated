@@ -67,6 +67,7 @@ func bootstrapBuildTools() {
 	workspace := pathf("%s/pkg/bootstrap", goroot)
 	// pkg/bootstrap/src/bootstrap
 	base := pathf("%s/src/bootstrap", workspace)
+	xmkdirall(base)
 
 	// 将src/cmd文件拷贝到/pkg/bootstrap/src/bootstrap/目录下,主要为了模块的隔离
 	minBootstrapVers := requiredBootstrapVersion(goModVersion()) // require the minimum required go version to build this go version in the go.mod file
