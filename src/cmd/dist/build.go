@@ -306,52 +306,56 @@ func runInstall(pkg string, ch chan struct{}) {
 		//ispackcmd bool
 	)
 
-	println(name)
 	if ispkg {
 		// 如果是库包，使用 pack 命令打包
 		link = []string{"pack", packagefile(pkg)}
 		targ = len(link) - 1
 		xmkdirall(filepath.Dir(link[targ]))
 	} else {
-		// Go command.
-		//elem := name
-		//// 如果安装的是cmd/go
-		//if elem == "go" {
-		//	elem = "go_bootstrap"
-		//}
-		//link = []string{pathf("%s/link", tooldir)}
-		//link = append(link, "-extld=")                                                          // 指定不使用外部链接器
-		//link = append(link, "-L="+pathf("%s/pkg/obj/go-bootstrap/%s_%s", goroot, goos, goarch)) // 指定链接器链接对象文件路径
-		//link = append(link, "-o", pathf("%s/%s%s", tooldir, elem, exe))                         // 二进制文件输出路径
-		//targ = len(link) - 1
+		// 这里主要是编译cmd目录下的文件
+
+		//Go command.
+		elem := name
+		// 如果安装的是cmd/go
+		if elem == "go" {
+			elem = "go_bootstrap"
+		}
+		link = []string{pathf("%s/link", tooldir)}
+		link = append(link, "-L="+pathf("%s/pkg/obj/go-bootstrap/%s_%s", goroot, goos, goarch)) // 指定链接器链接对象文件路径
+		link = append(link, "-o", pathf("%s/%s%s", tooldir, elem, exe))                         // 二进制文件输出路径
+		targ = len(link) - 1
 	}
 
 	// 读取要安装目录下的文件信息
 	files := xreaddir(dir)
 
-	// Convert to absolute paths.转换为绝对路径
+	// Convert to absolute paths.转换为绝对路径(make.bash编译的，所以只要转成绝对路径就可以了	)
 	for i, p := range files {
 		if !filepath.IsAbs(p) {
 			files[i] = pathf("%s/%s", dir, p)
 		}
 	}
-	println(files)
 
-	//var gofiles []string
-	//files = filter(files, func(p string) bool {
-	//	for _, suf := range depsuffix {
-	//		if strings.HasSuffix(p, suf) {
-	//			goto ok
-	//		}
-	//	}
-	//	return false
-	//ok:
-	//	if strings.HasSuffix(p, ".go") {
-	//		gofiles = append(gofiles, p)
-	//	}
-	//	return true
-	//})
-	//
+	var gofiles, sfiles []string
+	files = filter(files, func(p string) bool {
+		for _, suf := range depsuffix {
+			if strings.HasSuffix(p, suf) {
+				goto ok
+			}
+		}
+		return false
+	ok:
+		if strings.HasSuffix(p, ".go") {
+			gofiles = append(gofiles, p)
+		} else if strings.HasSuffix(p, ".s") {
+			sfiles = append(sfiles, p)
+		}
+		return true
+	})
+
+	println(gofiles)
+	println(sfiles)
+
 	//// If there are no files to compile, we're done.
 	//if len(files) == 0 {
 	//	return
@@ -530,7 +534,7 @@ func cmdbootstrap() {
 		xprintf("\n")
 	}
 
-	goBootstrap := pathf("%s/go_bootstrap", tooldir)
+	//goBootstrap := pathf("%s/go_bootstrap", tooldir)
 
 	timelog("build", "toolchain2")
 	if vflag > 0 {

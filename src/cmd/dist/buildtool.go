@@ -79,7 +79,7 @@ func bootstrapBuildTools() {
 				fatalf("walking bootstrap dirs failed: %v: %v", path, err)
 			}
 
-			name := filepath.Base(path)
+			//name := filepath.Base(path)
 			src := pathf("%s/src/%s", goroot, path)
 			dst := pathf("%s/%s", base, path)
 
@@ -89,8 +89,6 @@ func bootstrapBuildTools() {
 				xmkdirall(dst)
 				return nil
 			}
-			// todo hank 完善代码
-			println(name)
 
 			// 重写文件到bootstrap路径
 			text := bootstrapRewriteFile(src)
