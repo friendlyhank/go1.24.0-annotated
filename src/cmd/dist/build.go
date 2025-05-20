@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -249,7 +251,7 @@ func install(dir string) {
 // startInstall - 用chan方式开始安装程序
 func startInstall(dir string) chan struct{} {
 	installedMu.Lock()
-	ch := installed[dir]
+	ch := installed[dir] // 这里写的挺妙的，每个安装导入的包可能重复，这里直接去重了
 	if ch == nil {
 		ch = make(chan struct{})
 		installed[dir] = ch
@@ -307,7 +309,7 @@ func runInstall(pkg string, ch chan struct{}) {
 	)
 
 	if ispkg {
-		// 如果是库包，使用 pack 命令打包
+		// 如果是库包，使用 pack 命令打包(主要为非cmd目录下的文件)
 		link = []string{"pack", packagefile(pkg)}
 		targ = len(link) - 1
 		xmkdirall(filepath.Dir(link[targ]))
@@ -353,44 +355,64 @@ func runInstall(pkg string, ch chan struct{}) {
 		return true
 	})
 
-	println(gofiles)
-	println(sfiles)
+	// todo hank 需要调试，暂时先不删除
+	for _, p := range gofiles {
+		println("p文件", p)
+	}
+	for _, s := range sfiles {
+		println("s文件", s)
+	}
 
-	//// If there are no files to compile, we're done.
-	//if len(files) == 0 {
-	//	return
-	//}
-	//
-	//// Resolve imported packages to actual package paths. 将导入的包解析为实际的包路径
-	////  确保他们已安装
-	//// Make sure they're installed.
-	//importMap := make(map[string]string)
-	//for _, p := range gofiles {
-	//	// 读取要编译安装的go文件导入包的信息
-	//	for _, imp := range readimports(p) {
-	//		importMap[imp] = resolveVendor(imp, dir)
-	//	}
-	//}
-	//sortedImports := make([]string, 0, len(importMap))
-	//for imp := range importMap {
-	//	sortedImports = append(sortedImports, imp)
-	//}
-	//sort.Strings(sortedImports)
-	//
-	//// Build an importcfg file for the compiler. 构造用于编译的importcfg文件
-	//buf := &bytes.Buffer{}
-	//for _, imp := range sortedImports {
-	//	if imp == "unsafe" {
-	//		continue
-	//	}
-	//	dep := importMap[imp]
-	//	fmt.Fprintf(buf, "packagefile %s=%s\n", dep, packagefile(dep))
-	//}
-	//importcfg := pathf("%s/importcfg", workdir)
-	//if err := os.WriteFile(importcfg, buf.Bytes(), 0666); err != nil {
-	//	fatalf("cannot write importcfg file: %v", err)
-	//}
-	//
+	// If there are no files to compile, we're done.
+	if len(files) == 0 {
+		return
+	}
+
+	// For package runtime, copy some files into the work space.
+	//构建runtime需要拷贝一些包进去
+	if pkg == "runtime" {
+	}
+
+	// Resolve imported packages to actual package paths. 将导入的包解析为实际的包路径
+	//  确保他们已安装
+	// Make sure they're installed.
+	importMap := make(map[string]string)
+	for _, p := range gofiles {
+		// 读取要编译安装的go文件导入包的信息
+		for _, imp := range readimports(p) {
+			importMap[imp] = resolveVendor(imp, dir)
+		}
+	}
+
+	sortedImports := make([]string, 0, len(importMap))
+	for imp := range importMap {
+		sortedImports = append(sortedImports, imp)
+	}
+	sort.Strings(sortedImports)
+
+	// 先构建需要导入的依赖包，安装编译成.a文件
+	for _, dep := range importMap {
+		startInstall(dep)
+	}
+
+	//Build an importcfg file for the compiler. 构造用于编译的importcfg文件
+	buf := &bytes.Buffer{}
+	for _, imp := range sortedImports {
+		if imp == "unsafe" {
+			continue
+		}
+		dep := importMap[imp]
+		fmt.Fprintf(buf, "packagefile %s=%s\n", dep, packagefile(dep))
+	}
+	importcfg := pathf("%s/importcfg", workdir)
+	if err := os.WriteFile(importcfg, buf.Bytes(), 0666); err != nil {
+		fatalf("cannot write importcfg file: %v", err)
+	}
+
+	println("================")
+	println(string(buf.Bytes()))
+	println("================")
+
 	//// The next loop will compile individual non-Go files.
 	//// Hand the Go files to the compiler en masse.
 	//// For packages containing assembly, this writes go_asm.h, which

@@ -1,0 +1,5 @@
+package goos
+
+func main() {
+
+}
