@@ -268,6 +268,10 @@ func startInstall(dir string) chan struct{} {
 // 这里安装的包是重点(这个要完整理解)
 func runInstall(pkg string, ch chan struct{}) {
 
+	println("===========构建包路径 start============")
+	println(pkg)
+	println("===========构建包路径 end============")
+
 	defer close(ch)
 
 	// unsafe 包不需要安装
@@ -390,9 +394,13 @@ func runInstall(pkg string, ch chan struct{}) {
 	}
 	sort.Strings(sortedImports)
 
+	// 这两步有其精妙之处，先异步安装，然后同步获得结果
 	// 先构建需要导入的依赖包，安装编译成.a文件
 	for _, dep := range importMap {
 		startInstall(dep)
+	}
+	for _, dep := range importMap {
+		install(dep)
 	}
 
 	//Build an importcfg file for the compiler. 构造用于编译的importcfg文件
@@ -409,9 +417,9 @@ func runInstall(pkg string, ch chan struct{}) {
 		fatalf("cannot write importcfg file: %v", err)
 	}
 
-	println("================")
+	println("========打印包引用 start========")
 	println(string(buf.Bytes()))
-	println("================")
+	println("========打印包引用 end========")
 
 	//// The next loop will compile individual non-Go files.
 	//// Hand the Go files to the compiler en masse.
