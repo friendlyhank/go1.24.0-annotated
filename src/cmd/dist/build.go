@@ -30,7 +30,7 @@ var (
 
 	rebuildall bool // 重新构建所有依赖
 
-	vflag int // verbosity // 版本参数标记
+	vflag int // verbosity // 版本参数标记(用于标记日志打印等级)
 )
 
 // xinit handles initialization of the various global state, like goroot and goarch. 初始化全局信息例如goroot
@@ -315,7 +315,6 @@ func runInstall(pkg string, ch chan struct{}) {
 		xmkdirall(filepath.Dir(link[targ]))
 	} else {
 		// 这里主要是编译cmd目录下的文件
-
 		//Go command.
 		elem := name
 		// 如果安装的是cmd/go
@@ -323,6 +322,7 @@ func runInstall(pkg string, ch chan struct{}) {
 			elem = "go_bootstrap"
 		}
 		link = []string{pathf("%s/link", tooldir)}
+		link = append(link, "-extld=")
 		link = append(link, "-L="+pathf("%s/pkg/obj/go-bootstrap/%s_%s", goroot, goos, goarch)) // 指定链接器链接对象文件路径
 		link = append(link, "-o", pathf("%s/%s%s", tooldir, elem, exe))                         // 二进制文件输出路径
 		targ = len(link) - 1
@@ -369,8 +369,11 @@ func runInstall(pkg string, ch chan struct{}) {
 	}
 
 	// For package runtime, copy some files into the work space.
-	//构建runtime需要拷贝一些包进去
+	//构建runtime需要用到汇编，需要拷贝对应的汇编文件
 	if pkg == "runtime" {
+		xmkdirall(pathf("%s/pkg/include", goroot))
+		copyfile(pathf("%s/pkg/include/textflag.h", goroot),
+			pathf("%s/src/runtime/textflag.h", goroot), 0)
 	}
 
 	// Resolve imported packages to actual package paths. 将导入的包解析为实际的包路径
@@ -411,7 +414,7 @@ func runInstall(pkg string, ch chan struct{}) {
 	}
 	goasmh := pathf("%s/go_asm.h", workdir)
 
-	// Collect symabis from assembly code.处理汇编代码处理
+	// Collect symabis from assembly code.处理汇编代码处理(这里主要用于编译库包的时候汇编代码能正常被go代码使用)
 	var symabis string
 	if len(sfiles) > 0 {
 		symabis = pathf("%s/symabis", workdir)
@@ -478,7 +481,27 @@ func runInstall(pkg string, ch chan struct{}) {
 	bgrun(&wg, dir, compile...)
 	bgwait(&wg)
 
-	// 如果是库包，将文件从临时目录拷贝到pkg/obj/go-bootstrap,主要生成.a文件
+	// Compile the files. 将汇编代码处理成可执行的.o文件，可以被链接器使用
+	for _, p := range sfiles {
+		// Assembly file for a Go package.
+		compile := asmArgs[:len(asmArgs):len(asmArgs)]
+
+		doclean := true
+		b := pathf("%s/%s", workdir, filepath.Base(p))
+
+		// Change the last character of the output file (which was c or s).
+		b = b[:len(b)-1] + "o"
+		compile = append(compile, "-o", b, p)
+		bgrun(&wg, dir, compile...)
+
+		link = append(link, b)
+		if doclean {
+			clean = append(clean, b)
+		}
+	}
+	bgwait(&wg)
+
+	// 如果是库包，将文件从临时目录拷贝到pkg/obj/go-bootstrap,将.a和.o汇编文件以指定格式打包成.a,主要生成.a文件
 	if ispackcmd {
 		xremove(link[targ])
 		dopack(link[targ], archive, link[targ+1:])
@@ -488,6 +511,7 @@ func runInstall(pkg string, ch chan struct{}) {
 	//
 	//// Remove target before writing it. 删除旧的目标文件
 	//// 执行link相关指令
+	xremove(link[targ])
 	bgrun(&wg, "", link...)
 	bgwait(&wg)
 }
@@ -499,12 +523,34 @@ func packagefile(pkg string) string {
 	return pathf("%s/pkg/obj/go-bootstrap/%s_%s/%s.a", goroot, goos, goarch, pkg)
 }
 
+// copyfile copies the file src to dst, via memory (so only good for small files).拷贝文件
+func copyfile(dst, src string, flag int) {
+	if vflag > 1 {
+		errprintf("cp %s %s\n", src, dst)
+	}
+	writefile(readfile(src), dst, flag)
+}
+
 // dopack copies the package src to dst,
 // appending the files listed in extra.
 // The archive format is the traditional Unix ar format.
-// 将库包从临时目录拷贝到pkg/obj/go-bootstrap目录下
+// 将库包从临时目录拷贝到pkg/obj/go-bootstrap目录下,将.a和.o汇编文件以指定格式打包成.a
 func dopack(dst, src string, extra []string) {
 	bdst := bytes.NewBufferString(readfile(src))
+	for _, file := range extra {
+		b := readfile(file)
+		// find last path element for archive member name
+		i := strings.LastIndex(file, "/") + 1
+		j := strings.LastIndex(file, `\`) + 1
+		if i < j {
+			i = j
+		}
+		fmt.Fprintf(bdst, "%-16.16s%-12d%-6d%-6d%-8o%-10d`\n", file[i:], 0, 0, 0, 0644, len(b))
+		bdst.WriteString(b)
+		if len(b)&1 != 0 {
+			bdst.WriteByte(0)
+		}
+	}
 	writefile(bdst.String(), dst, 0)
 }
 

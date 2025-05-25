@@ -86,6 +86,11 @@ func runEnv(dir string, mode int, env []string, cmd ...string) string {
 			xprintf("%s\n", data)
 		}
 		outputLock.Unlock()
+		if mode&Background != 0 {
+			// Prevent fatalf from waiting on our own goroutine's
+			// bghelper to exit:
+			bghelpers.Done()
+		}
 		fatalf("FAILED: %v: %v", strings.Join(cmd, " "), err)
 	}
 	if mode&ShowOutput != 0 {
@@ -242,11 +247,17 @@ func xmkdirall(p string) {
 
 // xremove removes the file p. 删除指定文件路径
 func xremove(p string) {
+	if vflag > 2 {
+		errprintf("rm %s\n", p)
+	}
 	os.Remove(p)
 }
 
 // xremoveall removes the file or directory tree rooted at p.递归删除位于 p 的文件或目录树。
 func xremoveall(p string) {
+	if vflag > 2 {
+		errprintf("rm -r %s\n", p)
+	}
 	os.RemoveAll(p)
 }
 
