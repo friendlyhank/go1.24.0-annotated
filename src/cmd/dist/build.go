@@ -267,11 +267,6 @@ func startInstall(dir string) chan struct{} {
 // pkg 是相对于 $GOROOT/src 的路径。
 // 这里安装的包是重点(这个要完整理解)
 func runInstall(pkg string, ch chan struct{}) {
-
-	println("===========构建包路径 start============")
-	println(pkg)
-	println("===========构建包路径 end============")
-
 	defer close(ch)
 
 	// unsafe 包不需要安装
@@ -307,13 +302,14 @@ func runInstall(pkg string, ch chan struct{}) {
 	ispkg := !strings.HasPrefix(pkg, "cmd/") || strings.Contains(pkg, "/internal/") || strings.Contains(pkg, "/vendor/")
 
 	var (
-		link []string
-		targ int
-		//ispackcmd bool
+		link      []string
+		targ      int
+		ispackcmd bool
 	)
 
 	if ispkg {
 		// 如果是库包，使用 pack 命令打包(主要为非cmd目录下的文件)
+		ispackcmd = true
 		link = []string{"pack", packagefile(pkg)}
 		targ = len(link) - 1
 		xmkdirall(filepath.Dir(link[targ]))
@@ -403,6 +399,32 @@ func runInstall(pkg string, ch chan struct{}) {
 		install(dep)
 	}
 
+	// ba
+	asmArgs := []string{
+		pathf("%s/asm", tooldir),
+		"-I", workdir,
+		"-I", pathf("%s/pkg/include", goroot),
+		"-D", "GOOS_" + goos,
+		"-D", "GOARCH_" + goarch,
+		"-D", "GOOS_GOARCH_" + goos + "_" + goarch,
+		"-p", pkg,
+	}
+	goasmh := pathf("%s/go_asm.h", workdir)
+
+	// Collect symabis from assembly code.处理汇编代码处理
+	var symabis string
+	if len(sfiles) > 0 {
+		symabis = pathf("%s/symabis", workdir)
+		var wg sync.WaitGroup
+		asmabis := append(asmArgs[:len(asmArgs):len(asmArgs)], "-gensymabis", "-o", symabis)
+		asmabis = append(asmabis, sfiles...)
+		if err := os.WriteFile(goasmh, nil, 0666); err != nil {
+			fatalf("cannot write empty go_asm.h: %s", err)
+		}
+		bgrun(&wg, dir, asmabis...)
+		bgwait(&wg)
+	}
+
 	//Build an importcfg file for the compiler. 构造用于编译的importcfg文件
 	buf := &bytes.Buffer{}
 	for _, imp := range sortedImports {
@@ -417,39 +439,57 @@ func runInstall(pkg string, ch chan struct{}) {
 		fatalf("cannot write importcfg file: %v", err)
 	}
 
+	// todo hank 临时增加
 	println("========打印包引用 start========")
-	println(string(buf.Bytes()))
+	println("构建包地址", pkg)
+	println("包引用", string(buf.Bytes()))
 	println("========打印包引用 end========")
 
-	//// The next loop will compile individual non-Go files.
-	//// Hand the Go files to the compiler en masse.
-	//// For packages containing assembly, this writes go_asm.h, which
-	//// the assembly files will need.
-	//pkgName := pkg
-	//if strings.HasPrefix(pkg, "cmd/") && strings.Count(pkg, "/") == 1 {
-	//	pkgName = "main"
-	//}
-	//b := pathf("%s/_go_.a", workdir)
-	//clean = append(clean, b)
-	//if !ispackcmd {
-	//	link = append(link, b)
-	//}
-	//
-	//// Compile Go code. 编译go代码
-	//compile := []string{pathf("%s/compile", tooldir), "-std", "-pack", "-o", b, "-p", pkgName, "-importcfg", importcfg}
-	//compile = append(compile, gofiles...)
-	//var wg sync.WaitGroup
+	var archive string
+	// The next loop will compile individual non-Go files.
+	// Hand the Go files to the compiler en masse.
+	// For packages containing assembly, this writes go_asm.h, which
+	// the assembly files will need.
+	pkgName := pkg
+	if strings.HasPrefix(pkg, "cmd/") && strings.Count(pkg, "/") == 1 {
+		pkgName = "main"
+	}
+	b := pathf("%s/_go_.a", workdir)
+	clean = append(clean, b)
+	if !ispackcmd {
+		link = append(link, b)
+	} else {
+		archive = b
+	}
+
+	// Compile Go code. 编译go代码
+	compile := []string{pathf("%s/compile", tooldir), "-std", "-pack", "-o", b, "-p", pkgName, "-importcfg", importcfg}
+	if len(sfiles) > 0 {
+		compile = append(compile, "-asmhdr", goasmh)
+	}
+	if symabis != "" {
+		compile = append(compile, "-symabis", symabis)
+	}
+	compile = append(compile, gofiles...)
+	var wg sync.WaitGroup
 	//// We use bgrun and immediately wait for it instead of calling run() synchronously.
 	//// This executes all jobs through the bgwork channel and allows the process
 	//// to exit cleanly in case an error occurs.
-	//bgrun(&wg, dir, compile...)
-	//bgwait(&wg)
+	bgrun(&wg, dir, compile...)
+	bgwait(&wg)
+
+	// 如果是库包，将文件从临时目录拷贝到pkg/obj/go-bootstrap,主要生成.a文件
+	if ispackcmd {
+		xremove(link[targ])
+		dopack(link[targ], archive, link[targ+1:])
+		return
+	}
+
 	//
 	//// Remove target before writing it. 删除旧的目标文件
 	//// 执行link相关指令
-	//xremove(link[targ])
-	//bgrun(&wg, "", link...)
-	//bgwait(&wg)
+	bgrun(&wg, "", link...)
+	bgwait(&wg)
 }
 
 // packagefile returns the path to a compiled .a file for the given package
@@ -457,6 +497,15 @@ func runInstall(pkg string, ch chan struct{}) {
 // 对应静态库包(其实就是go导入的包)
 func packagefile(pkg string) string {
 	return pathf("%s/pkg/obj/go-bootstrap/%s_%s/%s.a", goroot, goos, goarch, pkg)
+}
+
+// dopack copies the package src to dst,
+// appending the files listed in extra.
+// The archive format is the traditional Unix ar format.
+// 将库包从临时目录拷贝到pkg/obj/go-bootstrap目录下
+func dopack(dst, src string, extra []string) {
+	bdst := bytes.NewBufferString(readfile(src))
+	writefile(bdst.String(), dst, 0)
 }
 
 // clean - 构建go包先进行清理
