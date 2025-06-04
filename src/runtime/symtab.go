@@ -1,5 +1,7 @@
 package runtime
 
+import "std/runtime/sys"
+
 // moduledata records information about the layout of the executable
 // image. It is written by the linker. Any changes here must be
 // matched changes to the code in cmd/link/internal/ld/symtab.go:symtab.
@@ -12,4 +14,7 @@ package runtime
 // 此处的所有指针对垃圾回收器均不可见。
 // 这个东西由连接器link使用
 type moduledata struct {
+	sys.NotInHeap // Only in static data
+
+	next *moduledata
 }
