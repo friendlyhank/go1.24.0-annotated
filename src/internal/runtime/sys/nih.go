@@ -6,7 +6,7 @@ package sys
 
 // NOTE: keep in sync with cmd/compile/internal/types.CalcSize
 // to make the compiler recognize this as an intrinsic type.
-是 Go 运行时中用于 支持 NotInHeap 类型机制 的底层编译器协同结构，其核心目的是 确保编译器将特定类型识别为内建类型，从而正确应用内存分配限制规则。
+// 是 Go 运行时中用于 支持 NotInHeap 类型机制 的底层编译器协同结构，其核心目的是 确保编译器将特定类型识别为内建类型，从而正确应用内存分配限制规则。
 type nih struct{}
 
 // NotInHeap is a type must never be allocated from the GC'd heap or on the stack,

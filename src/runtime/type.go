@@ -4,6 +4,8 @@ import (
 	"internal/abi"
 )
 
+type typeOff = abi.TypeOff
+
 type _type = abi.Type
 
 type interfacetype = abi.InterfaceType

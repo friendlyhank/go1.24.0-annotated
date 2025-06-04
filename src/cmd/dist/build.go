@@ -475,9 +475,9 @@ func runInstall(pkg string, ch chan struct{}) {
 	}
 	compile = append(compile, gofiles...)
 	var wg sync.WaitGroup
-	//// We use bgrun and immediately wait for it instead of calling run() synchronously.
-	//// This executes all jobs through the bgwork channel and allows the process
-	//// to exit cleanly in case an error occurs.
+	// We use bgrun and immediately wait for it instead of calling run() synchronously.
+	// This executes all jobs through the bgwork channel and allows the process
+	// to exit cleanly in case an error occurs.
 	bgrun(&wg, dir, compile...)
 	bgwait(&wg)
 
@@ -509,8 +509,8 @@ func runInstall(pkg string, ch chan struct{}) {
 	}
 
 	//
-	//// Remove target before writing it. 删除旧的目标文件
-	//// 执行link相关指令
+	// Remove target before writing it. 删除旧的目标文件
+	// 执行link相关指令
 	xremove(link[targ])
 	bgrun(&wg, "", link...)
 	bgwait(&wg)
