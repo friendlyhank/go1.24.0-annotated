@@ -25,7 +25,9 @@ const minBootstrap = "go1.22.6" // 最低可构建编译的go版本
 // include all packages within subdirectories as well.
 // These will be imported during bootstrap as bootstrap/name, like bootstrap/math/big.
 var bootstrapDirs = []string{
+	"cmd/asm",
 	"cmd/compile",
+	"cmd/link",
 }
 
 // 尝试查找已构建的go版本
