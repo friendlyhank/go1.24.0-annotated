@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,6 +31,20 @@ func filter(list []string, f func(string) bool) []string {
 		}
 	}
 	return out
+}
+
+// uniq returns a sorted slice containing the unique elements of list. 去重
+func uniq(list []string) []string {
+	out := make([]string, len(list))
+	copy(out, list)
+	sort.Strings(out)
+	keep := out[:0]
+	for _, x := range out {
+		if len(keep) == 0 || keep[len(keep)-1] != x {
+			keep = append(keep, x)
+		}
+	}
+	return keep
 }
 
 const (

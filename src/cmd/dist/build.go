@@ -205,7 +205,8 @@ func isGitRepo() bool {
 	return isdir(gitDir)
 }
 
-// setup sets up the tree for the initial build. go 项目构建
+// setup sets up the tree for the initial build
+// 初始化构建，主要为目录创建、移除
 func setup() {
 	// Create bin directory. 创建bin目录
 	if p := pathf("%s/bin", goroot); !isdir(p) {
@@ -222,14 +223,38 @@ func setup() {
 		xremoveall(goosGoarch)
 	}
 	xmkdirall(goosGoarch)
+	xatexit(func() {
+		if files := xreaddir(goosGoarch); len(files) == 0 {
+			xremove(goosGoarch)
+		}
+	})
+
+	// Create object directory.
+	// We used to use it for C objects.
+	// Now we use it for the build cache, to separate dist's cache
+	// from any other cache the user might have, and for the location
+	// to build the bootstrap versions of the standard library.
+	obj := pathf("%s/pkg/obj", goroot)
+	if !isdir(obj) {
+		xmkdir(obj)
+	}
+	//xatexit(func() { xremove(obj) })
+
+	// Create directory for bootstrap versions of standard library .a files.
+	// 标准库.a文件的路径(重要)
+	objGoBootstrap := pathf("%s/pkg/obj/go-bootstrap", goroot)
+	if rebuildall {
+		xremoveall(objGoBootstrap)
+	}
+	xmkdirall(objGoBootstrap)
 
 	// Create tool directory.
 	// We keep it in pkg/, just like the object directory above.
 	// todo hank 临时先关闭 工具类路径删除
-	//if rebuildall {
-	//	xremoveall(tooldir)
-	//}
-	//xmkdirall(tooldir)
+	if rebuildall {
+		xremoveall(tooldir)
+	}
+	xmkdirall(tooldir)
 }
 
 // depsuffix records the allowed suffixes for source files. 查找允许安装的前缀文件
@@ -331,6 +356,20 @@ func runInstall(pkg string, ch chan struct{}) {
 	// 读取要安装目录下的文件信息
 	files := xreaddir(dir)
 
+	// Remove files beginning with . or _,
+	// which are likely to be editor temporary files.
+	// This is the same heuristic build.ScanDir uses.
+	// There do exist real C files beginning with _,
+	// so limit that check to just Go files.
+	// 过滤源文件列表，移除编辑器临时文件
+	// 保留规则：
+	// 1. 排除以 '.' 开头的隐藏文件（如 .git/.DS_Store）
+	// 2. 排除以 '_' 开头的 Go 源文件（如 _test.go），但保留非 Go 文件
+	files = filter(files, func(p string) bool {
+		return !strings.HasPrefix(p, ".") && (!strings.HasPrefix(p, "_") || !strings.HasSuffix(p, ".go"))
+	})
+	files = uniq(files)
+
 	// Convert to absolute paths.转换为绝对路径(make.bash编译的，所以只要转成绝对路径就可以了	)
 	for i, p := range files {
 		if !filepath.IsAbs(p) {
@@ -347,6 +386,9 @@ func runInstall(pkg string, ch chan struct{}) {
 		}
 		return false
 	ok:
+		if !strings.HasSuffix(p, ".a") && !shouldbuild(p, pkg) {
+			return false
+		}
 		if strings.HasSuffix(p, ".go") {
 			gofiles = append(gofiles, p)
 		} else if strings.HasSuffix(p, ".s") {
@@ -357,7 +399,7 @@ func runInstall(pkg string, ch chan struct{}) {
 
 	// todo hank 需要调试，暂时先不删除
 	for _, p := range gofiles {
-		println("p文件", p)
+		println("g文件", p)
 	}
 	for _, s := range sfiles {
 		println("s文件", s)
@@ -523,6 +565,41 @@ func packagefile(pkg string) string {
 	return pathf("%s/pkg/obj/go-bootstrap/%s_%s/%s.a", goroot, goos, goarch, pkg)
 }
 
+// shouldbuild reports whether we should build this file.
+// It applies the same rules that are used with context tags
+// in package go/build, except it's less picky about the order
+// of GOOS and GOARCH.
+// We also allow the special tag cmd_go_bootstrap.
+// See ../go/bootstrap.go and package go/build.
+// 判断文件是否可以构建
+func shouldbuild(file, pkg string) bool {
+	name := filepath.Base(file)
+
+	// Omit test files.
+	// 测试文件不参与
+	if strings.Contains(name, "_test") {
+		return false
+	}
+
+	// Check file contents for //go:build lines.
+	for _, p := range strings.Split(readfile(file), "\n") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		code := p
+		i := strings.Index(code, "//")
+		if i > 0 {
+			code = strings.TrimSpace(code[:i])
+		}
+		if code == "package documentation" {
+			return false
+		}
+	}
+
+	return true
+}
+
 // copyfile copies the file src to dst, via memory (so only good for small files).拷贝文件
 func copyfile(dst, src string, flag int) {
 	if vflag > 1 {
@@ -545,6 +622,7 @@ func dopack(dst, src string, extra []string) {
 		if i < j {
 			i = j
 		}
+
 		fmt.Fprintf(bdst, "%-16.16s%-12d%-6d%-6d%-8o%-10d`\n", file[i:], 0, 0, 0, 0644, len(b))
 		bdst.WriteString(b)
 		if len(b)&1 != 0 {
@@ -611,6 +689,12 @@ func toolenv() []string {
 var toolchain = []string{"cmd/asm", "cmd/cgo", "cmd/compile", "cmd/link", "cmd/preprofile"}
 
 // cmdbootstrap - 构建go工具(关键go工具生成代码)
+/*
+ 1.初始化目录相关信息
+ 2.构建工具类(复制文件内容到新模块，环境隔离)
+ 3.用工具类构建库包，主要是compile
+ 4.用工具类将link链接在一起
+*/
 func cmdbootstrap() {
 	timelog("start", "dist bootstrap")
 	defer timelog("end", "dist bootstrap")

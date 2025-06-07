@@ -69,10 +69,10 @@ func bootstrapBuildTools() {
 	base := pathf("%s/src/bootstrap", workspace)
 	xmkdirall(base)
 
-	// 将src/cmd文件拷贝到/pkg/bootstrap/src/bootstrap/目录下,主要为了模块的隔离
 	minBootstrapVers := requiredBootstrapVersion(goModVersion()) // require the minimum required go version to build this go version in the go.mod file
 	// 生成对应/pkg/bootstrap/src/bootstrap/的mod文件
 	writefile("module bootstrap\ngo "+minBootstrapVers+"\n", pathf("%s/%s", base, "go.mod"), 0)
+	// 将src/cmd文件拷贝到/pkg/bootstrap/src/bootstrap/目录下,主要为了模块的隔离
 	for _, dir := range bootstrapDirs {
 		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -118,6 +118,22 @@ func bootstrapBuildTools() {
 	}
 	cmd = append(cmd, "bootstrap/cmd/...")
 	run(base, ShowOutput|CheckExit, cmd...)
+
+	// Copy binaries into tool binary directory.
+	// 将二进制文件拷贝到工具类目录下
+	for _, name := range bootstrapDirs {
+		if !strings.HasPrefix(name, "cmd/") {
+			continue
+		}
+		name = name[len("cmd/"):]
+		if !strings.Contains(name, "/") {
+			copyfile(pathf("%s/%s%s", tooldir, name, exe), pathf("%s/bin/%s%s", workspace, name, exe), writeExec)
+		}
+	}
+
+	if vflag > 0 {
+		xprintf("\n")
+	}
 }
 
 // bootstrapRewriteFile - 重写工具链文件到/pkg/bootstrap/src/bootstrap/cmd目录下
