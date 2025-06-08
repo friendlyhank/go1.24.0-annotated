@@ -39,6 +39,7 @@ func xinit() {
 	if b == "" {
 		fatalf("$GOROOT must be set")
 	}
+	// 当前工作路径的goroot、gorootBin
 	goroot = filepath.Clean(b)
 	gorootBin = pathf("%s/bin", goroot)
 
@@ -58,6 +59,14 @@ func xinit() {
 		b = gohostarch
 	}
 	goarch = b
+
+	// Set GOBIN to GOROOT/bin. The meaning of GOBIN has drifted over time
+	// (see https://go.dev/issue/3269, https://go.dev/cl/183058,
+	// https://go.dev/issue/31576). Since we want binaries installed by 'dist' to
+	// always go to GOROOT/bin anyway.
+	os.Setenv("GOBIN", gorootBin)
+	os.Unsetenv("GO111MODULE")
+	os.Setenv("GOENV", "off")
 
 	// 编译go文件生成临时的工作目录
 	workdir = xworkdir()
@@ -713,6 +722,25 @@ func cmdbootstrap() {
 	flag.BoolVar(&noBanner, "no-banner", noBanner, "do not print banner")
 	// noClean 标志用于控制是否打印过时警告
 	flag.BoolVar(&noClean, "no-clean", noClean, "print deprecation warning")
+
+	// Set GOPATH to an internal directory. We shouldn't actually
+	// need to store files here, since the toolchain won't
+	// depend on modules outside of vendor directories, but if
+	// GOPATH points somewhere else (e.g., to GOROOT), the
+	// go tool may complain.
+	// todo hank 这个为什么这么设置，不太理解
+	os.Setenv("GOPATH", pathf("%s/pkg/obj/gopath", goroot))
+
+	// Set GOPROXY=off to avoid downloading modules to the modcache in
+	// the GOPATH set above to be inside GOROOT. The modcache is read
+	// only so if we downloaded to the modcache, we'd create readonly
+	// files in GOROOT, which is undesirable. See #67463)
+	os.Setenv("GOPROXY", "off")
+
+	// Use a build cache separate from the default user one.
+	// Also one that will be wiped out during startup, so that
+	// make.bash really does start from a clean slate.
+	os.Setenv("GOCACHE", pathf("%s/pkg/obj/go-build", goroot))
 
 	xflagparse(0)
 

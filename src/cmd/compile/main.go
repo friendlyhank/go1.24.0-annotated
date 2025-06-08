@@ -15,6 +15,7 @@ var archInits = map[string]func(*ssagen.ArchInfo){
 }
 
 func main() {
+	
 	// disable timestamps for reproducible output
 	log.SetFlags(0)
 	log.SetPrefix("compile: ")

@@ -99,9 +99,28 @@ func bootstrapBuildTools() {
 		})
 	}
 
-	// 设置生成工具类的环境
-	os.Setenv("GOROOT", goroot_bootstrap)
+	// Set up environment for invoking Go bootstrap toolchains go command.
+	// GOROOT points at Go bootstrap GOROOT,
+	// GOPATH points at our bootstrap workspace,
+	// GOBIN is empty, so that binaries are installed to GOPATH/bin,
+	// and GOOS, GOHOSTOS, GOARCH, and GOHOSTOS are empty,
+	// so that Go bootstrap toolchain builds whatever kind of binary it knows how to build.
+	// Restore GOROOT, GOPATH, and GOBIN when done.
+	// Don't bother with GOOS, GOHOSTOS, GOARCH, and GOHOSTARCH,
+	// because setup will take care of those when bootstrapBuildTools returns.
+	/*
+		注意：
+		1.这里的作用首先是设置GOPATH创建独立的沙盒环境，构建隔离
+		2.一个是编译安装的环境，构建完成后会恢复原始的GOROOT GOPATH GOBIN环境变量(如果不恢复，会影响到比如包的引用)
+		3.如何很好的隔离环境编译工具类
+	*/
+	defer os.Setenv("GOROOT", os.Getenv("GOROOT")) // 但是安装的包引用使用当前路径的包构建
+	os.Setenv("GOROOT", goroot_bootstrap)          // 使用外部安装的go install
+
+	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", workspace)
+
+	defer os.Setenv("GOBIN", os.Getenv("GOBIN"))
 	os.Setenv("GOBIN", "")
 
 	// Run Go bootstrap to build binaries.
