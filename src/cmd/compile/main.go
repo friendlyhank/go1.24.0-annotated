@@ -15,7 +15,7 @@ var archInits = map[string]func(*ssagen.ArchInfo){
 }
 
 func main() {
-	
+	fmt.Println("compile env", os.Getenv("GOROOT"), os.Getenv("GOPATH"))
 	// disable timestamps for reproducible output
 	log.SetFlags(0)
 	log.SetPrefix("compile: ")

@@ -75,7 +75,6 @@ func runEnv(dir string, mode int, env []string, cmd ...string) string {
 	xcmd := exec.Command(cmd[0], cmd[1:]...)
 	// 设置命令运行目录，这样才能读取到对应的文件
 	setDir(xcmd, dir)
-
 	var data []byte
 	var err error
 
@@ -184,6 +183,15 @@ func bgwait(wg *sync.WaitGroup) {
 		// to the user.
 		select {}
 	}
+}
+
+// xgetwd returns the current directory. 输出当前的执行路径
+func xgetwd() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		fatalf("%s", err)
+	}
+	return wd
 }
 
 // isdir reports whether p names an existing directory. 文件路径是否存在

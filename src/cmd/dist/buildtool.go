@@ -25,9 +25,7 @@ const minBootstrap = "go1.22.6" // 最低可构建编译的go版本
 // include all packages within subdirectories as well.
 // These will be imported during bootstrap as bootstrap/name, like bootstrap/math/big.
 var bootstrapDirs = []string{
-	"cmd/asm",
 	"cmd/compile",
-	"cmd/link",
 }
 
 // 尝试查找已构建的go版本
@@ -114,14 +112,10 @@ func bootstrapBuildTools() {
 		2.一个是编译安装的环境，构建完成后会恢复原始的GOROOT GOPATH GOBIN环境变量(如果不恢复，会影响到比如包的引用)
 		3.如何很好的隔离环境编译工具类
 	*/
-	defer os.Setenv("GOROOT", os.Getenv("GOROOT")) // 但是安装的包引用使用当前路径的包构建
-	os.Setenv("GOROOT", goroot_bootstrap)          // 使用外部安装的go install
-
-	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
+	//defer os.Setenv("GOROOT", os.Getenv("GOROOT"))
+	os.Setenv("GOROOT", goroot_bootstrap)
+	//defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", workspace)
-
-	defer os.Setenv("GOBIN", os.Getenv("GOBIN"))
-	os.Setenv("GOBIN", "")
 
 	// Run Go bootstrap to build binaries.
 	// Use the math_big_pure_go build tag to disable the assembly in math/big
@@ -137,7 +131,7 @@ func bootstrapBuildTools() {
 	if vflag > 0 {
 		cmd = append(cmd, "-v")
 	}
-	cmd = append(cmd, "bootstrap/cmd/...")
+	cmd = append(cmd, "./cmd/...") // 这里不知道为什么官方是bootstrap/cmd/...
 	run(base, ShowOutput|CheckExit, cmd...)
 
 	// Copy binaries into tool binary directory.
