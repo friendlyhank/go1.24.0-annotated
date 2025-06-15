@@ -731,7 +731,9 @@ func cmdbootstrap() {
 	// GOPATH points somewhere else (e.g., to GOROOT), the
 	// go tool may complain.
 	os.Setenv("GOPATH", pathf("%s/pkg/obj/gopath", goroot))
-	
+
+	//os.Setenv("GOCACHE", pathf("%s/pkg/obj/go-build", goroot))
+
 	// 重新构建所有
 	if rebuildall {
 		clean()

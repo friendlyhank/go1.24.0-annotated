@@ -1,7 +1,12 @@
+// Copyright 2015 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package main
 
 import (
 	"cmd/compile/internal/arm64"
+	"cmd/compile/internal/base"
 	"cmd/compile/internal/gc"
 	"cmd/compile/internal/ssagen"
 	"fmt"
@@ -15,7 +20,6 @@ var archInits = map[string]func(*ssagen.ArchInfo){
 }
 
 func main() {
-	fmt.Println("compile env", os.Getenv("GOROOT"), os.Getenv("GOPATH"))
 	// disable timestamps for reproducible output
 	log.SetFlags(0)
 	log.SetPrefix("compile: ")
@@ -27,4 +31,5 @@ func main() {
 		os.Exit(2)
 	}
 	gc.Main(archInit)
+	base.Exit(0)
 }

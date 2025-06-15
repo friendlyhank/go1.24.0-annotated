@@ -5,9 +5,12 @@
 package base
 
 import (
+	"cmd/compile/internal/objabi"
 	"flag"
 	"fmt"
 	"os"
+	"reflect"
+	"strings"
 )
 
 /*
@@ -16,6 +19,7 @@ import (
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "usage: compile [options] file.go...\n")
+	Exit(2)
 }
 
 // Flag holds the parsed command-line flags.
@@ -40,18 +44,55 @@ var Flag CmdFlags
 type CmdFlags struct {
 	LowerO string "help:\"write output to `file`\"" // 输出的文件
 
-	Pack bool "help:\"write to file.a instead of file.o\""
-	Std  bool "help:\"compiling standard library\"" // 编译标准库
+	Pack bool "help:\"write to file.a instead of file.o\"" // 打包输出.a文件，而不是.o // todo hank .a和.o区别
+	Std  bool "help:\"compiling standard library\""        // 编译标准库
 }
 
 // ParseFlags parses the command-line flags into Flag. 解析命令参数
 func ParseFlags() {
+	// 注册命令参数
+	registerFlags()
+	// 解析命令
+	objabi.Flagparse(usage)
+
+	// todo hank 打印
+	fmt.Println("std", Flag.Std)
+
 	if flag.NArg() < 1 {
 		usage()
 	}
 
 	if Flag.LowerO == "" {
 		p := flag.Arg(0)
-		fmt.Println("=======", p)
+		println(p)
+	}
+}
+
+// registerFlags adds flag registrations for all the fields in Flag.
+// See the comment on type CmdFlags for the rules.
+func registerFlags() {
+
+	var (
+		boolType = reflect.TypeOf(bool(false))
+	)
+
+	v := reflect.ValueOf(&Flag).Elem()
+	t := v.Type()
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		var name string
+		name = strings.ToLower(f.Name)
+
+		help := f.Tag.Get("help")
+		if help == "" {
+			panic(fmt.Sprintf("base.Flag.%s is missing help text", f.Name))
+		}
+
+		switch f.Type {
+		case boolType:
+			p := v.Field(i).Addr().Interface().(*bool)
+			flag.BoolVar(p, name, *p, help)
+		}
 	}
 }

@@ -7,6 +7,9 @@ import (
 
 // Main - compile生成主方法
 func Main(archInit func(*ssagen.ArchInfo)) {
-	println("========5555=======")
 	base.ParseFlags()
+
+	dumpdata()
+
+	dumpobj()
 }

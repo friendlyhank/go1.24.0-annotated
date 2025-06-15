@@ -4,6 +4,7 @@ import (
 	"go/version"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -26,6 +27,7 @@ const minBootstrap = "go1.22.6" // 最低可构建编译的go版本
 // These will be imported during bootstrap as bootstrap/name, like bootstrap/math/big.
 var bootstrapDirs = []string{
 	"cmd/compile",
+	"internal/buildcfg",
 }
 
 // 尝试查找已构建的go版本
@@ -135,7 +137,7 @@ func bootstrapBuildTools() {
 	if vflag > 0 {
 		cmd = append(cmd, "-v")
 	}
-	cmd = append(cmd, "./cmd/...") // 这里不知道为什么官方是bootstrap/cmd/...
+	cmd = append(cmd, "bootstrap/cmd/...")
 	run(base, ShowOutput|CheckExit, cmd...)
 
 	// Copy binaries into tool binary directory.
@@ -160,8 +162,77 @@ func bootstrapRewriteFile(srcFile string) string {
 	return bootstrapFixImports(srcFile)
 }
 
+var (
+	importRE      = regexp.MustCompile(`\Aimport\s+(\.|[A-Za-z0-9_]+)?\s*"([^"]+)"\s*(//.*)?\n\z`)
+	importBlockRE = regexp.MustCompile(`\A\s*(?:(\.|[A-Za-z0-9_]+)?\s*"([^"]+)")?\s*(//.*)?\n\z`)
+)
+
+// importRE 用于解析独立的导入语句，如：import "fmt"
+// importBlockRE 用于解析导入块，如：import (...)
+
 func bootstrapFixImports(srcFile string) string {
 	text := readfile(srcFile)
 	lines := strings.SplitAfter(text, "\n")
+	inBlock := false // 是否导入块
+	for i, line := range lines {
+		if strings.HasPrefix(line, "import (") {
+			inBlock = true
+			continue
+		}
+		if inBlock && strings.HasPrefix(line, ")") {
+			inBlock = false
+			continue
+		}
+
+		var m []string
+		if !inBlock {
+			if !strings.HasPrefix(line, "import ") {
+				continue
+			}
+			m = importRE.FindStringSubmatch(line)
+			if m == nil {
+				fatalf("%s:%d: invalid import declaration: %q", srcFile, i+1, line)
+			}
+		} else {
+			m = importBlockRE.FindStringSubmatch(line)
+			if m == nil {
+				fatalf("%s:%d: invalid import block line", srcFile, i+1)
+			}
+			if m[2] == "" {
+				continue
+			}
+		}
+
+		path := m[2]
+		// 替换成bootstrap的工作路径
+		if strings.HasPrefix(path, "cmd/") {
+			path = "bootstrap/" + path
+		} else {
+			for _, dir := range bootstrapDirs {
+				if path == dir {
+					path = "bootstrap/" + dir
+					break
+				}
+			}
+		}
+
+		// Otherwise, reject direct imports of internal packages,
+		// since that implies knowledge of internal details that might
+		// change from one bootstrap toolchain to the next.
+		// There are many internal packages that are listed in
+		// bootstrapDirs and made into bootstrap copies based on the
+		// current repo's source code. Those are fine; this is catching
+		// references to internal packages in the older bootstrap toolchain.
+		if strings.HasPrefix(path, "internal/") {
+			fatalf("%s:%d: bootstrap-copied source file cannot import %s", srcFile, i+1, path)
+		}
+		// 替换最终的构建路径
+		if path != m[2] {
+			lines[i] = strings.ReplaceAll(line, `"`+m[2]+`"`, `"`+path+`"`)
+		}
+	}
+
+	lines[0] = generatedHeader + "// This is a bootstrap copy of " + srcFile + "\n\n//line " + srcFile + ":1\n" + lines[0]
+
 	return strings.Join(lines, "")
 }
