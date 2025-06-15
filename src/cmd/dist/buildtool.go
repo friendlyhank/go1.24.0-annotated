@@ -112,10 +112,14 @@ func bootstrapBuildTools() {
 		2.一个是编译安装的环境，构建完成后会恢复原始的GOROOT GOPATH GOBIN环境变量(如果不恢复，会影响到比如包的引用)
 		3.如何很好的隔离环境编译工具类
 	*/
-	//defer os.Setenv("GOROOT", os.Getenv("GOROOT"))
+	defer os.Setenv("GOROOT", os.Getenv("GOROOT"))
 	os.Setenv("GOROOT", goroot_bootstrap)
-	//defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
+
+	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", workspace)
+
+	defer os.Setenv("GOBIN", os.Getenv("GOBIN"))
+	os.Setenv("GOBIN", "")
 
 	// Run Go bootstrap to build binaries.
 	// Use the math_big_pure_go build tag to disable the assembly in math/big

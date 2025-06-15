@@ -722,9 +722,16 @@ func cmdbootstrap() {
 	flag.BoolVar(&noBanner, "no-banner", noBanner, "do not print banner")
 	// noClean 标志用于控制是否打印过时警告
 	flag.BoolVar(&noClean, "no-clean", noClean, "print deprecation warning")
-	
+
 	xflagparse(0)
 
+	// Set GOPATH to an internal directory. We shouldn't actually
+	// need to store files here, since the toolchain won't
+	// depend on modules outside of vendor directories, but if
+	// GOPATH points somewhere else (e.g., to GOROOT), the
+	// go tool may complain.
+	os.Setenv("GOPATH", pathf("%s/pkg/obj/gopath", goroot))
+	
 	// 重新构建所有
 	if rebuildall {
 		clean()
