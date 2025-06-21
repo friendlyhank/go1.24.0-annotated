@@ -19,6 +19,7 @@ var archInits = map[string]func(*ssagen.ArchInfo){
 	"arm64": arm64.Init,
 }
 
+// 编译器生成
 func main() {
 	// disable timestamps for reproducible output
 	log.SetFlags(0)

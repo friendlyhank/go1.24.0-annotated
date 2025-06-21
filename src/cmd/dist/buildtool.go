@@ -27,6 +27,8 @@ const minBootstrap = "go1.22.6" // 最低可构建编译的go版本
 // These will be imported during bootstrap as bootstrap/name, like bootstrap/math/big.
 var bootstrapDirs = []string{
 	"cmd/compile",
+	"cmd/internal/obj/...",
+	"cmd/internal/objabi",
 	"internal/buildcfg",
 }
 
@@ -76,6 +78,7 @@ func bootstrapBuildTools() {
 	writefile("module bootstrap\ngo "+minBootstrapVers+"\n", pathf("%s/%s", base, "go.mod"), 0)
 	// 将src/cmd文件拷贝到/pkg/bootstrap/src/bootstrap/目录下,主要为了模块的隔离
 	for _, dir := range bootstrapDirs {
+		dir = strings.TrimSuffix(dir, "/...")
 		filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				fatalf("walking bootstrap dirs failed: %v: %v", path, err)

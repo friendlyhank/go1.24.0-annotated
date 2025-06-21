@@ -423,8 +423,6 @@ func runInstall(pkg string, ch chan struct{}) {
 	//构建runtime需要用到汇编，需要拷贝对应的汇编文件
 	if pkg == "runtime" {
 		xmkdirall(pathf("%s/pkg/include", goroot))
-		copyfile(pathf("%s/pkg/include/textflag.h", goroot),
-			pathf("%s/src/runtime/textflag.h", goroot), 0)
 	}
 
 	// Resolve imported packages to actual package paths. 将导入的包解析为实际的包路径
