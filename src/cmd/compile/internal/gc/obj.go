@@ -2,6 +2,8 @@ package gc
 
 import (
 	"cmd/compile/internal/base"
+	"cmd/internal/bio"
+	"fmt"
 )
 
 const (
@@ -15,6 +17,13 @@ func dumpobj() {
 }
 
 func dumpobj1(outfile string, mode int) {
+	bout, err := bio.Create(outfile)
+	if err != nil {
+		fmt.Printf("can't create %s: %v\n", outfile, err)
+		base.ErrorExit()
+	}
+	defer bout.Close()
+
 	if mode&modeCompilerObj != 0 {
 	}
 

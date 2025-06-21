@@ -1,9 +1,17 @@
 package objabi
 
-import "flag"
+import (
+	"flag"
+	"io"
+)
 
 func Flagfn1(name, usage string, f func(string)) {
 	flag.Var(fn1(f), name, usage)
+}
+
+func Flagprint(w io.Writer) {
+	flag.CommandLine.SetOutput(w)
+	flag.PrintDefaults()
 }
 
 func Flagparse(usage func()) {
