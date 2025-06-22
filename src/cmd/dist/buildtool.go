@@ -30,8 +30,11 @@ var bootstrapDirs = []string{
 	"cmd/internal/bio",
 	"cmd/internal/obj/...",
 	"cmd/internal/objabi",
-	"internal/buildcfg",
+	"cmd/internal/quoted",
+	"cmd/internal/sys",
 	"cmd/link",
+	"cmd/link/internal/...",
+	"internal/buildcfg",
 }
 
 // 尝试查找已构建的go版本
