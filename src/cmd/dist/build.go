@@ -251,19 +251,20 @@ func setup() {
 
 	// Create directory for bootstrap versions of standard library .a files.
 	// 标准库.a文件的路径(重要)
-	objGoBootstrap := pathf("%s/pkg/obj/go-bootstrap", goroot)
-	if rebuildall {
-		xremoveall(objGoBootstrap)
-	}
-	xmkdirall(objGoBootstrap)
+	// todo hank 暂时关闭
+	//objGoBootstrap := pathf("%s/pkg/obj/go-bootstrap", goroot)
+	//if rebuildall {
+	//	xremoveall(objGoBootstrap)
+	//}
+	//xmkdirall(objGoBootstrap)
 
 	// Create tool directory.
 	// We keep it in pkg/, just like the object directory above.
 	// todo hank 临时先关闭 工具类路径删除
-	if rebuildall {
-		xremoveall(tooldir)
-	}
-	xmkdirall(tooldir)
+	//if rebuildall {
+	//	xremoveall(tooldir)
+	//}
+	//xmkdirall(tooldir)
 }
 
 // depsuffix records the allowed suffixes for source files. 查找允许安装的前缀文件
@@ -743,7 +744,7 @@ func cmdbootstrap() {
 	timelog("build", "toolchain1")
 
 	// 用于构建 Go tool工具链
-	bootstrapBuildTools()
+	//bootstrapBuildTools()
 
 	goos = gohostos
 
@@ -751,15 +752,13 @@ func cmdbootstrap() {
 	timelog("build", "go_bootstrap")
 	xprintf("Building Go bootstrap cmd/go (go_bootstrap) using Go toolchain1.\n")
 	// 安装src/cmd/go 这里会生成go_bootstrap二进制文件，go_bootstrap最终生成bin/go
-	install("runtime") // link需要依赖于runtime
-	install("cmd/go")  // go包编译
-
-	//install("cmd/go")
+	//install("runtime") // link需要依赖于runtime
+	//install("cmd/go")  // go包编译,生成中间产物go_bootstrap
 	if vflag > 0 {
 		xprintf("\n")
 	}
 
-	//goBootstrap := pathf("%s/go_bootstrap", tooldir)
+	goBootstrap := pathf("%s/go_bootstrap", tooldir)
 
 	timelog("build", "toolchain2")
 	if vflag > 0 {
@@ -774,7 +773,7 @@ func cmdbootstrap() {
 	xprintf("Building Go toolchain3 using go_bootstrap and Go toolchain2.\n")
 
 	// 首先会生成goBootstrap二进制文件,然后执行这个二进制文件生成goBinary
-	//goInstall(toolenv(), goBootstrap, "cmd")
+	goInstall(toolenv(), goBootstrap, "cmd")
 
 	// Check that there are no new files in $GOROOT/bin other than
 	// go and gofmt and $GOOS_$GOARCH (target bin when cross-compiling).
@@ -789,18 +788,23 @@ func cmdbootstrap() {
 		}
 	}
 
-	// 需要横幅
+	// 需要横幅`
 	if !noBanner {
 		banner()
 	}
 }
 
+// go安装指令
 func goInstall(env []string, goBinary string, args ...string) {
 	goCmd(env, goBinary, "install", args...)
 }
 
+// go相关指令
 func goCmd(env []string, goBinary string, cmd string, args ...string) {
 	goCmd := []string{goBinary, cmd}
+	if vflag > 0 {
+		goCmd = append(goCmd, "-v")
+	}
 	runEnv(workdir, ShowOutput|CheckExit, env, append(goCmd, args...)...)
 }
 
