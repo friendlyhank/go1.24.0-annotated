@@ -92,7 +92,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 )
 
 // ErrHelp is the error returned if the -help or -h flag is invoked
@@ -188,6 +190,20 @@ type Flag struct {
 	DefValue string // 默认值 default value (as text); for usage message
 }
 
+// sortFlags returns the flags as a slice in lexicographical sorted order.
+func sortFlags(flags map[string]*Flag) []*Flag {
+	result := make([]*Flag, len(flags))
+	i := 0
+	for _, f := range flags {
+		result[i] = f
+		i++
+	}
+	slices.SortFunc(result, func(a, b *Flag) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	return result
+}
+
 // Output returns the destination for usage and error messages. [os.Stderr] is returned if
 // output was not set or was set to nil.
 func (f *FlagSet) Output() io.Writer {
@@ -215,11 +231,12 @@ func (f *FlagSet) SetOutput(output io.Writer) {
 
 // VisitAll visits the flags in lexicographical order, calling fn for each.
 // It visits all flags, even those not set.
-//func (f *FlagSet) VisitAll(fn func(*Flag)) {
-//	for _, flag := range sortFlags(f.formal) {
-//		fn(flag)
-//	}
-//}
+// VisitAll - 遍历所有命令参数
+func (f *FlagSet) VisitAll(fn func(*Flag)) {
+	for _, flag := range sortFlags(f.formal) {
+		fn(flag)
+	}
+}
 
 // PrintDefaults prints, to standard error unless configured otherwise, the
 // default values of all defined command-line flags in the set. See the
