@@ -15,6 +15,7 @@ type NumError struct {
 	Err  error  // 错误原因 the reason the conversion failed (e.g. ErrRange, ErrSyntax, etc.)
 }
 
+// Error - 解析错误处理
 func (e *NumError) Error() string {
 	return "strconv." + e.Func + ": " + "parsing " + Quote(e.Num) + ": " + e.Err.Error()
 }

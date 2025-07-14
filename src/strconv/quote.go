@@ -23,6 +23,8 @@ func appendQuotedWith(buf []byte, s string, quote byte, ASCIIonly, graphicOnly b
 	}
 	// 设置起始符号
 	buf = append(buf, quote)
+	for width := 0; len(s) > 0; s = s[width:] {
+	}
 	return buf
 }
 
