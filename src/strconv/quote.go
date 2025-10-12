@@ -1,5 +1,7 @@
 package strconv
 
+import "unicode/utf8"
+
 func quoteWith(s string, quote byte, ASCIIonly, graphicOnly bool) string {
 	// 分配足够的1.5倍的空间
 	return string(appendQuotedWith(make([]byte, 0, 3*len(s)/2), s, quote, ASCIIonly, graphicOnly))
@@ -24,6 +26,17 @@ func appendQuotedWith(buf []byte, s string, quote byte, ASCIIonly, graphicOnly b
 	// 设置起始符号
 	buf = append(buf, quote)
 	for width := 0; len(s) > 0; s = s[width:] {
+		r := rune(s[0])
+		width = 1
+		// 表示多字节utf-8,小于的表示ASCII（单字节）
+		if r >= utf8.RuneSelf {
+			r, width = utf8.DecodeRuneInString(s)
+		}
+		// 常见的如单字节非法字符\x80、\x90、\xC0、\xE0、\xF5、\xFE、\xFF
+		// 如果是非法的UTF-8 字节，将每个每个非法字节转为 \xNN 形式，不进行转义，保证输出字符合法、可见、可逆。
+		if width == 1 && r == utf8.RuneError {
+			continue
+		}
 	}
 	return buf
 }

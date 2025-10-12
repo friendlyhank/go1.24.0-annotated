@@ -106,6 +106,24 @@ var ErrHelp = errors.New("flag: help requested")
 // 解析错误
 var errParse = errors.New("parse error")
 
+// errRange is returned by Set if a flag's value is out of range.
+// It then gets wrapped through failf to provide more information.
+var errRange = errors.New("value out of range")
+
+func numError(err error) error {
+	ne, ok := err.(*strconv.NumError)
+	if !ok {
+		return err
+	}
+	if ne.Err == strconv.ErrSyntax {
+		return errParse
+	}
+	if ne.Err == strconv.ErrRange {
+		return errRange
+	}
+	return err
+}
+
 type boolValue bool
 
 func newBoolValue(val bool, p *bool) *boolValue {
@@ -133,6 +151,23 @@ func (b *boolValue) IsBoolFlag() bool { return true }
 type boolFlag interface {
 	Value
 	IsBoolFlag() bool
+}
+
+// -- int Value
+type intValue int
+
+func newIntValue(val int, p *int) *intValue {
+	*p = val
+	return (*intValue)(p)
+}
+
+func (i *intValue) Set(s string) error {
+	v, err := strconv.ParseInt(s, 0, strconv.IntSize)
+	if err != nil {
+		err = numError(err)
+	}
+	*i = intValue(v)
+	return err
 }
 
 // Value is the interface to the dynamic value stored in a flag.
@@ -428,6 +463,16 @@ func init() {
 	} else {
 		CommandLine = NewFlagSet(os.Args[0], ExitOnError)
 	}
+
+	// Override generic FlagSet default Usage with call to global Usage.
+	// Note: This is not CommandLine.Usage = Usage,
+	// because we want any eventual call to use any updated value of Usage,
+	// not the value it has when this line is run.
+	CommandLine.Usage = commandLineUsage
+}
+
+func commandLineUsage() {
+	Usage()
 }
 
 func NewFlagSet(name string, errorHandling ErrorHandling) *FlagSet {

@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go strconv 包源码分析教程</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+
+        h3 {
+            color: #2c3e50;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .toc {
+            background: #ecf0f1;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .toc h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .toc li {
+            margin: 8px 0;
+        }
+
+        .toc a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .diagram-wrapper {
+            position: relative;
+            margin: 30px 0;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .diagram-controls {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e8ed;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .zoom-btn, .download-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .zoom-btn:hover, .download-btn:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        .zoom-btn:active, .download-btn:active {
+            transform: translateY(0);
+        }
+
+        .zoom-info {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #495057;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            min-height: 300px;
+            transition: transform 0.3s ease;
+            transform-origin: center;
+        }
+
+        .description {
+            background: #f8f9fa;
+            border-left: 4px solid #17a2b8;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .description h4 {
+            margin-top: 0;
+            color: #17a2b8;
+            font-size: 1.2em;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            transition: transform 0.2s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-card h4 {
+            color: #495057;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .performance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .performance-table th,
+        .performance-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .performance-table th {
+            background: #3498db;
+            color: white;
+            font-weight: 600;
+        }
+
+        .performance-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .diagram-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-group {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Go strconv 包源码分析教程</h1>
+        
+        <div class="toc">
+            <h3>📋 目录</h3>
+            <ul>
+                <li><a href="#overview">1. 包概述</a></li>
+                <li><a href="#architecture">2. 系统架构图</a></li>
+                <li><a href="#execution-flow">3. 执行流程图</a></li>
+                <li><a href="#sequence-diagram">4. 交互序列图</a></li>
+                <li><a href="#class-diagram">5. 类图和关系图</a></li>
+                <li><a href="#core-functions">6. 核心功能分析</a></li>
+                <li><a href="#performance">7. 性能分析</a></li>
+                <li><a href="#best-practices">8. 最佳实践</a></li>
+            </ul>
+        </div>
+
+        <section id="overview">
+            <h2>📖 1. 包概述</h2>
+            <p><code>strconv</code> 包实现了基本数据类型与字符串表示之间的转换。它是Go标准库中最重要的包之一，提供了高效、安全的类型转换功能。</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🔢 数值转换</h4>
+                    <p>支持整数、浮点数、布尔值与字符串之间的双向转换，包括不同进制的支持。</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📝 字符串处理</h4>
+                    <p>提供字符串引用、转义、反引用等功能，支持ASCII和Unicode字符处理。</p>
+                </div>
+                <div class="feature-card">
+                    <h4>⚡ 高性能</h4>
+                    <p>采用优化算法，支持快速路径处理，最小化内存分配。</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🛡️ 类型安全</h4>
+                    <p>严格的错误处理机制，防止溢出和格式错误。</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="architecture">
+            <h2>🏗️ 2. 系统架构图</h2>
+            <div class="diagram-wrapper">
+                <div class="diagram-controls">
+                    <div class="control-group">
+                        <label>下载:</label>
+                        <button class="download-btn" onclick="downloadDiagram('architecture-diagram', 'png')">PNG</button>
+                        <button class="download-btn" onclick="downloadDiagram('architecture-diagram', 'svg')">SVG</button>
+                    </div>
+                    <div class="control-group">
+                        <label>缩放:</label>
+                        <button class="zoom-btn" onclick="zoomDiagram('architecture-diagram', 0.1)">放大</button>
+                        <span class="zoom-info" id="architecture-diagram-zoom">100%</span>
+                        <button class="zoom-btn" onclick="zoomDiagram('architecture-diagram', -0.1)">缩小</button>
+                        <button class="zoom-btn" onclick="resetZoom('architecture-diagram')">重置</button>
+                    </div>
+                </div>
+                <div class="mermaid" id="architecture-diagram">
+                    graph TB
+                        subgraph "strconv 包架构"
+                            subgraph "Parse 系列函数"
+                                PB[ParseBool]
+                                PI[ParseInt]
+                                PU[ParseUint]
+                                PF[ParseFloat]
+                                PC[ParseComplex]
+                            end
+                            
+                            subgraph "Format 系列函数"
+                                FB[FormatBool]
+                                FI[FormatInt]
+                                FU[FormatUint]
+                                FF[FormatFloat]
+                                FC[FormatComplex]
+                            end
+                            
+                            subgraph "Append 系列函数"
+                                AB[AppendBool]
+                                AI[AppendInt]
+                                AU[AppendUint]
+                                AF[AppendFloat]
+                            end
+                            
+                            subgraph "Quote 系列函数"
+                                Q[Quote]
+                                QA[QuoteToASCII]
+                                QR[QuoteRune]
+                                QRA[QuoteRuneToASCII]
+                                UQ[Unquote]
+                            end
+                            
+                            subgraph "核心算法模块"
+                                DEC[decimal 多精度运算]
+                                FMT[formatBits 格式化]
+                                EISEL[eisel_lemire 快速转换]
+                                RYU[龙四算法 Ryu]
+                            end
+                            
+                            subgraph "辅助模块"
+                                ERR[错误处理（NumError, ErrSyntax, ErrRange）]
+                                CONST[常量定义]
+                                UTIL[工具函数]
+                            end
+                        end
+                        
+                        PB --> ERR
+                        PI --> ERR
+                        PU --> ERR
+                        PF --> ERR
+                        PC --> ERR
+                        PI --> FMT
+                        PU --> FMT
+                        PF --> DEC
+                        PF --> EISEL
+                        PC --> PF
+                        
+                        FF --> RYU
+                        FF --> DEC
+                        FI --> FMT
+                        FU --> FMT
+                        
+                        AB --> FB
+                        AI --> FI
+                        AU --> FU
+                        AF --> FF
+                        
+                        Q --> UTIL
+                        QA --> UTIL
+                        UQ --> ERR
+                </div>
+            </div>
+            <div class="description">
+                <h4>架构说明</h4>
+                <p>strconv包采用模块化设计，主要分为四个功能系列和三个核心模块：</p>
+                <ul>
+                    <li><strong>Parse系列</strong>：将字符串转换为各种基本类型</li>
+                    <li><strong>Format系列</strong>：将基本类型转换为字符串</li>
+                    <li><strong>Append系列</strong>：高效的追加式转换，减少内存分配</li>
+                    <li><strong>Quote系列</strong>：字符串引用和转义处理</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="execution-flow">
+            <h2>🔄 3. 执行流程图</h2>
+            <div class="diagram-wrapper">
+                <div class="diagram-controls">
+                    <div class="control-group">
+                        <label>下载:</label>
+                        <button class="download-btn" onclick="downloadDiagram('execution-flow', 'png')">PNG</button>
+                        <button class="download-btn" onclick="downloadDiagram('execution-flow', 'svg')">SVG</button>
+                    </div>
+                    <div class="control-group">
+                        <label>缩放:</label>
+                        <button class="zoom-btn" onclick="zoomDiagram('execution-flow', 0.1)">放大</button>
+                        <span class="zoom-info" id="execution-flow-zoom">100%</span>
+                        <button class="zoom-btn" onclick="zoomDiagram('execution-flow', -0.1)">缩小</button>
+                        <button class="zoom-btn" onclick="resetZoom('execution-flow')">重置</button>
+                    </div>
+                </div>
+                <div class="mermaid" id="execution-flow">
+                    graph TD
+                        A[用户调用 strconv 函数] --> B{函数类型判断}
+                        
+                        B -->|Parse系列| C[输入验证]
+                        B -->|Format系列| M[类型检查]
+                        B -->|Append系列| S[缓冲区准备]
+                        B -->|Quote系列| W[字符串分析]
+                        
+                        C --> D{输入格式检查}
+                        D -->|有效| E[选择算法路径]
+                        D -->|无效| F[返回语法错误]
+                        
+                        E --> G{是否快速路径}
+                        G -->|是| H[快速转换]
+                        G -->|否| I[精确算法]
+                        
+                        H --> J[返回结果]
+                        I --> K[多精度计算]
+                        K --> L[精度处理]
+                        L --> J
+                        
+                        M --> N{数值范围检查}
+                        N -->|正常| O[格式化处理]
+                        N -->|溢出| P[返回范围错误]
+                        
+                        O --> Q{选择格式化算法}
+                        Q -->|整数| R[formatBits]
+                        Q -->|浮点数| T[Ryu算法/decimal]
+                        Q -->|布尔值| U[简单映射]
+                        
+                        R --> V[构建字符串]
+                        T --> V
+                        U --> V
+                        V --> J
+                        
+                        S --> X[调用Format函数]
+                        X --> Y[追加到缓冲区]
+                        Y --> Z[返回扩展缓冲区]
+                        
+                        W --> AA{字符类型}
+                        AA -->|ASCII| BB[直接处理]
+                        AA -->|Unicode| CC[UTF-8编码]
+                        AA -->|特殊字符| DD[转义处理]
+                        
+                        BB --> EE[构建引用字符串]
+                        CC --> EE
+                        DD --> EE
+                        EE --> J
+                        
+                        F --> FF[构建NumError]
+                        P --> FF
+                        FF --> GG[返回错误]
+                        
+                        J --> HH[成功返回]
+                        Z --> HH
+                        GG --> II[错误返回]
+                </div>
+            </div>
+            <div class="description">
+                <h4>执行流程说明</h4>
+                <p>strconv包的执行流程体现了高效的设计原则：</p>
+                <ul>
+                    <li><strong>输入验证</strong>：首先进行格式和范围检查</li>
+                    <li><strong>算法选择</strong>：根据输入特征选择最优算法</li>
+                    <li><strong>快速路径</strong>：对常见情况提供优化处理</li>
+                    <li><strong>错误处理</strong>：统一的错误类型和详细的错误信息</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="sequence-diagram">
+            <h2>🔄 4. 交互序列图</h2>
+            <div class="diagram-wrapper">
+                <div class="diagram-controls">
+                    <div class="control-group">
+                        <label>下载:</label>
+                        <button class="download-btn" onclick="downloadDiagram('sequence-diagram', 'png')">PNG</button>
+                        <button class="download-btn" onclick="downloadDiagram('sequence-diagram', 'svg')">SVG</button>
+                    </div>
+                    <div class="control-group">
+                        <label>缩放:</label>
+                        <button class="zoom-btn" onclick="zoomDiagram('sequence-diagram', 0.1)">放大</button>
+                        <span class="zoom-info" id="sequence-diagram-zoom">100%</span>
+                        <button class="zoom-btn" onclick="zoomDiagram('sequence-diagram', -0.1)">缩小</button>
+                        <button class="zoom-btn" onclick="resetZoom('sequence-diagram')">重置</button>
+                    </div>
+                </div>
+                <div class="mermaid" id="sequence-diagram">
+                    sequenceDiagram
+                        participant U as 用户代码
+                        participant P as ParseFloat
+                        participant V as 输入验证
+                        participant A as 算法选择器
+                        participant F as 快速路径
+                        participant D as Decimal模块
+                        participant E as 错误处理
+                        
+                        U->>P: ParseFloat("3.14159", 64)
+                        P->>V: 验证输入格式
+                        
+                        alt 输入无效
+                            V->>E: 创建语法错误
+                            E->>P: 返回NumError
+                            P->>U: 返回错误
+                        else 输入有效
+                            V->>A: 传递有效输入
+                            A->>A: 分析数值特征
+                            
+                            alt 可用快速路径
+                                A->>F: 调用快速转换
+                                F->>F: 直接计算
+                                F->>P: 返回结果
+                            else 需要精确计算
+                                A->>D: 调用多精度算法
+                                D->>D: 设置decimal结构
+                                D->>D: 执行多精度运算
+                                D->>D: 转换为浮点数
+                                
+                                alt 结果溢出
+                                    D->>E: 创建范围错误
+                                    E->>P: 返回NumError
+                                    P->>U: 返回错误
+                                else 转换成功
+                                    D->>P: 返回浮点数
+                                end
+                            end
+                            
+                            P->>U: 返回 (float64, nil)
+                        end
+                </div>
+            </div>
+            <div class="description">
+                <h4>序列图说明</h4>
+                <p>以ParseFloat为例展示了strconv包的典型交互流程：</p>
+                <ul>
+                    <li><strong>输入验证</strong>：检查字符串格式的有效性</li>
+                    <li><strong>算法选择</strong>：根据数值特征选择处理路径</li>
+                    <li><strong>快速路径</strong>：对简单情况进行优化处理</li>
+                    <li><strong>精确计算</strong>：使用多精度算法处理复杂情况</li>
+                    <li><strong>错误处理</strong>：提供详细的错误信息</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="class-diagram">
+            <h2>📊 5. 类图和关系图</h2>
+            <div class="diagram-wrapper">
+                <div class="diagram-controls">
+                    <div class="control-group">
+                        <label>下载:</label>
+                        <button class="download-btn" onclick="downloadDiagram('class-diagram', 'png')">PNG</button>
+                        <button class="download-btn" onclick="downloadDiagram('class-diagram', 'svg')">SVG</button>
+                    </div>
+                    <div class="control-group">
+                        <label>缩放:</label>
+                        <button class="zoom-btn" onclick="zoomDiagram('class-diagram', 0.1)">放大</button>
+                        <span class="zoom-info" id="class-diagram-zoom">100%</span>
+                        <button class="zoom-btn" onclick="zoomDiagram('class-diagram', -0.1)">缩小</button>
+                        <button class="zoom-btn" onclick="resetZoom('class-diagram')">重置</button>
+                    </div>
+                </div>
+                <div class="mermaid" id="class-diagram">
+                    graph TB
+                        subgraph "核心数据结构"
+                            NumError["NumError<br/>错误类型<br/>---<br/>Func: string<br/>Num: string<br/>Err: error<br/>---<br/>Error() string<br/>Unwrap() error"]
+                            
+                            Decimal["decimal<br/>多精度十进制<br/>---<br/>d: [800]byte<br/>nd: int<br/>dp: int<br/>neg: bool<br/>trunc: bool<br/>---<br/>String() string<br/>set(string) bool<br/>floatBits(*floatInfo) uint64"]
+                            
+                            FloatInfo["floatInfo<br/>浮点数信息<br/>---<br/>mantbits: uint<br/>expbits: uint<br/>bias: int"]
+                            
+                            DecimalSlice["decimalSlice<br/>十进制切片<br/>---<br/>d: []byte<br/>nd: int<br/>dp: int"]
+                        end
+                        
+                        subgraph "主要函数组"
+                            ParseFuncs["Parse 函数组<br/>---<br/>ParseBool(string)<br/>ParseInt(string, int, int)<br/>ParseUint(string, int, int)<br/>ParseFloat(string, int)<br/>ParseComplex(string, int)"]
+                            
+                            FormatFuncs["Format 函数组<br/>---<br/>FormatBool(bool)<br/>FormatInt(int64, int)<br/>FormatUint(uint64, int)<br/>FormatFloat(float64, byte, int, int)<br/>FormatComplex(complex128, byte, int, int)"]
+                            
+                            AppendFuncs["Append 函数组<br/>---<br/>AppendBool([]byte, bool)<br/>AppendInt([]byte, int64, int)<br/>AppendUint([]byte, uint64, int)<br/>AppendFloat([]byte, float64, byte, int, int)"]
+                            
+                            QuoteFuncs["Quote 函数组<br/>---<br/>Quote(string)<br/>QuoteToASCII(string)<br/>QuoteRune(rune)<br/>Unquote(string)"]
+                        end
+                        
+                        subgraph "算法实现"
+                            FormatBits["formatBits<br/>整数格式化算法"]
+                            GenericFtoa["genericFtoa<br/>浮点数格式化"]
+                            EiselLemire["eiselLemire<br/>快速浮点转换"]
+                            BigFtoa["bigFtoa<br/>高精度浮点格式化"]
+                        end
+                        
+                        ParseFuncs --> NumError
+                        ParseFloat --> Decimal
+                        ParseFloat --> EiselLemire
+                        
+                        FormatFuncs --> FormatBits
+                        FormatFloat --> GenericFtoa
+                        GenericFtoa --> BigFtoa
+                        BigFtoa --> Decimal
+                        
+                        AppendFuncs --> FormatFuncs
+                        
+                        Decimal --> FloatInfo
+                        GenericFtoa --> DecimalSlice
+                        
+                        style NumError fill:#ffebee
+                        style Decimal fill:#e8f5e8
+                        style FloatInfo fill:#e3f2fd
+                        style DecimalSlice fill:#fff3e0
+                </div>
+            </div>
+            <div class="description">
+                <h4>类图说明</h4>
+                <p>strconv包的核心数据结构和函数关系：</p>
+                <ul>
+                    <li><strong>NumError</strong>：统一的错误类型，包含详细的错误信息</li>
+                    <li><strong>decimal</strong>：多精度十进制数，用于精确的浮点数转换</li>
+                    <li><strong>floatInfo</strong>：浮点数格式信息，支持float32和float64</li>
+                    <li><strong>函数组</strong>：按功能分组的转换函数，提供一致的API</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="core-functions">
+            <h2>⚙️ 6. 核心功能分析</h2>
+            
+            <h3>6.1 ParseBool 函数</h3>
+            <div class="code-block">
+func ParseBool(str string) (bool, error) {
+    switch str {
+    case "1", "t", "T", "true", "TRUE", "True":
+        return true, nil
+    case "0", "f", "F", "false", "FALSE", "False":
+        return false, nil
+    }
+    return false, syntaxError("ParseBool", str)
+}
+            </div>
+            <div class="highlight">
+                <strong>特点：</strong>使用switch语句实现O(1)时间复杂度，支持多种布尔值表示格式。
+            </div>
+
+            <h3>6.2 ParseInt 函数</h3>
+            <div class="code-block">
+func ParseInt(s string, base int, bitSize int) (i int64, err error) {
+    // 处理符号
+    // 调用ParseUint进行无符号转换
+    // 检查范围并应用符号
+}
+            </div>
+            <div class="highlight">
+                <strong>特点：</strong>支持2-36进制，自动检测进制前缀（0x, 0o），严格的溢出检查。
+            </div>
+
+            <h3>6.3 ParseFloat 函数</h3>
+            <div class="code-block">
+func ParseFloat(s string, bitSize int) (float64, error) {
+    // 特殊值处理（Inf, NaN）
+    // 选择快速路径或精确算法
+    // 使用eisel-lemire或decimal算法
+}
+            </div>
+            <div class="highlight">
+                <strong>特点：</strong>采用eisel-lemire算法优化常见情况，使用多精度decimal处理复杂情况。
+            </div>
+        </section>
+
+        <section id="performance">
+            <h2>📈 7. 性能分析</h2>
+            
+            <table class="performance-table">
+                <thead>
+                    <tr>
+                        <th>函数</th>
+                        <th>时间复杂度</th>
+                        <th>空间复杂度</th>
+                        <th>优化特性</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ParseBool</td>
+                        <td>O(1)</td>
+                        <td>O(1)</td>
+                        <td>switch语句，无内存分配</td>
+                    </tr>
+                    <tr>
+                        <td>ParseInt</td>
+                        <td>O(n)</td>
+                        <td>O(1)</td>
+                        <td>快速路径，溢出检查</td>
+                    </tr>
+                    <tr>
+                        <td>ParseFloat</td>
+                        <td>O(n)</td>
+                        <td>O(1)</td>
+                        <td>eisel-lemire算法</td>
+                    </tr>
+                    <tr>
+                        <td>FormatInt</td>
+                        <td>O(log n)</td>
+                        <td>O(1)</td>
+                        <td>小整数表，位操作</td>
+                    </tr>
+                    <tr>
+                        <td>FormatFloat</td>
+                        <td>O(n)</td>
+                        <td>O(1)</td>
+                        <td>Ryu算法，缓存优化</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="highlight">
+                <strong>性能优化策略：</strong>
+                <ul>
+                    <li>小整数预计算表（0-99）</li>
+                    <li>快速路径检测</li>
+                    <li>最小内存分配</li>
+                    <li>算法选择优化</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="best-practices">
+            <h2>💡 8. 最佳实践</h2>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🔍 错误处理</h4>
+                    <div class="code-block">
+if val, err := strconv.ParseInt(s, 10, 64); err != nil {
+    if numErr, ok := err.(*strconv.NumError); ok {
+        // 处理具体错误类型
+        fmt.Printf("函数: %s, 输入: %s, 错误: %v\n", 
+                   numErr.Func, numErr.Num, numErr.Err)
+    }
+}
+                    </div>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>⚡ 性能优化</h4>
+                    <div class="code-block">
+// 使用Append系列函数减少内存分配
+buf := make([]byte, 0, 64)
+buf = strconv.AppendInt(buf, 42, 10)
+buf = strconv.AppendFloat(buf, 3.14, 'f', 2, 64)
+                    </div>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>🛡️ 类型安全</h4>
+                    <div class="code-block">
+// 指定位大小避免平台差异
+val, err := strconv.ParseInt(s, 10, 32)
+if err == nil {
+    i32 := int32(val) // 安全转换
+}
+                    </div>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📝 格式控制</h4>
+                    <div class="code-block">
+// 浮点数格式化选项
+s1 := strconv.FormatFloat(3.14159, 'f', 2, 64) // "3.14"
+s2 := strconv.FormatFloat(3.14159, 'e', 2, 64) // "3.14e+00"
+s3 := strconv.FormatFloat(3.14159, 'g', -1, 64) // "3.14159"
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // 初始化Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35
+            }
+        });
+
+        // 缩放功能
+        const zoomLevels = {};
+
+        function zoomDiagram(diagramId, delta) {
+            if (!zoomLevels[diagramId]) {
+                zoomLevels[diagramId] = 1.0;
+            }
+            
+            zoomLevels[diagramId] += delta;
+            zoomLevels[diagramId] = Math.max(0.2, Math.min(3.0, zoomLevels[diagramId]));
+            
+            const diagram = document.getElementById(diagramId);
+            diagram.style.transform = `scale(${zoomLevels[diagramId]})`;
+            
+            updateZoomInfo(diagramId);
+        }
+
+        function resetZoom(diagramId) {
+            zoomLevels[diagramId] = 1.0;
+            const diagram = document.getElementById(diagramId);
+            diagram.style.transform = 'scale(1.0)';
+            updateZoomInfo(diagramId);
+        }
+
+        function updateZoomInfo(diagramId) {
+            const zoomInfo = document.getElementById(diagramId + '-zoom');
+            if (zoomInfo) {
+                zoomInfo.textContent = Math.round(zoomLevels[diagramId] * 100) + '%';
+            }
+        }
+
+        // 下载功能
+        function downloadDiagram(diagramId, format) {
+            const diagram = document.getElementById(diagramId);
+            const svg = diagram.querySelector('svg');
+            
+            if (!svg) {
+                alert('图表还未完全加载，请稍后再试');
+                return;
+            }
+
+            if (format === 'svg') {
+                downloadSVG(svg, diagramId);
+            } else if (format === 'png') {
+                downloadPNG(svg, diagramId);
+            }
+        }
+
+        function downloadSVG(svg, filename) {
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const svgUrl = URL.createObjectURL(svgBlob);
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = svgUrl;
+            downloadLink.download = filename + '.svg';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(svgUrl);
+        }
+
+        function downloadPNG(svg, filename) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            // 获取SVG尺寸
+            const svgRect = svg.getBoundingClientRect();
+            canvas.width = svgRect.width * 2; // 高分辨率
+            canvas.height = svgRect.height * 2;
+            
+            // 设置白色背景
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const svgUrl = URL.createObjectURL(svgBlob);
+            
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                canvas.toBlob(function(blob) {
+                    const pngUrl = URL.createObjectURL(blob);
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = pngUrl;
+                    downloadLink.download = filename + '.png';
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+                    URL.revokeObjectURL(pngUrl);
+                    URL.revokeObjectURL(svgUrl);
+                });
+            };
+            
+            img.src = svgUrl;
+        }
+
+        // 初始化所有图表的缩放信息
+        document.addEventListener('DOMContentLoaded', function() {
+            const diagrams = ['architecture-diagram', 'execution-flow', 'sequence-diagram', 'class-diagram'];
+            diagrams.forEach(diagramId => {
+                zoomLevels[diagramId] = 1.0;
+                updateZoomInfo(diagramId);
+            });
+        });
+    </script>
+</body>
+</html>
