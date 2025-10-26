@@ -169,15 +169,80 @@
         }
 
         .code-block {
-            background: #2d3748;
-            color: #e2e8f0;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: #f1f5f9;
+            padding: 24px;
+            border-radius: 12px;
+            margin: 24px 0;
             overflow-x: auto;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 0.9em;
-            line-height: 1.5;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.95em;
+            line-height: 1.6;
+            border: 1px solid #475569;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            position: relative;
+        }
+
+        .code-block::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .code-block pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* 语法高亮样式 */
+        .code-block .keyword {
+            color: #f472b6;
+            font-weight: 600;
+        }
+
+        .code-block .string {
+            color: #34d399;
+        }
+
+        .code-block .comment {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .code-block .function {
+            color: #60a5fa;
+        }
+
+        .code-block .number {
+            color: #fbbf24;
+        }
+
+        .code-block .type {
+            color: #a78bfa;
+        }
+
+        /* 代码块标题样式 */
+        .code-title {
+            background: #374151;
+            color: #f9fafb;
+            padding: 8px 16px;
+            margin: 24px 0 0 0;
+            border-radius: 8px 8px 0 0;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', monospace;
+            font-size: 0.85em;
+            font-weight: 600;
+            border-bottom: 1px solid #4b5563;
+        }
+
+        .code-title + .code-block {
+            margin-top: 0;
+            border-radius: 0 0 12px 12px;
         }
 
         .highlight {
@@ -277,7 +342,7 @@
                 <li><a href="#execution-flow">3. 执行流程图</a></li>
                 <li><a href="#sequence-diagram">4. 交互序列图</a></li>
                 <li><a href="#class-diagram">5. 类图和关系图</a></li>
-                <li><a href="#core-functions">6. 核心功能分析</a></li>
+                <li><a href="#usage-examples">6. 使用示例</a></li>
                 <li><a href="#performance">7. 性能分析</a></li>
                 <li><a href="#best-practices">8. 最佳实践</a></li>
             </ul>
@@ -377,7 +442,7 @@
                         PU --> ERR
                         PF --> ERR
                         PC --> ERR
-                        PI --> FMT
+                        PI --> PU
                         PU --> FMT
                         PF --> DEC
                         PF --> EISEL
@@ -650,47 +715,266 @@
             </div>
         </section>
 
-        <section id="core-functions">
-            <h2>⚙️ 6. 核心功能分析</h2>
+        <section id="usage-examples">
+            <h2>💡 6. 使用示例</h2>
             
-            <h3>6.1 ParseBool 函数</h3>
+            <h3>6.1 ParseBool - 布尔值解析</h3>
+            <div class="code-title">📝 ParseBool 基本用法示例</div>
             <div class="code-block">
-func ParseBool(str string) (bool, error) {
-    switch str {
-    case "1", "t", "T", "true", "TRUE", "True":
-        return true, nil
-    case "0", "f", "F", "false", "FALSE", "False":
-        return false, nil
+                <pre>package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func main() {
+    // 支持多种格式的布尔值
+    examples := []string{"true", "false", "1", "0", "t", "f", "T", "F", "TRUE", "FALSE"}
+    
+    for _, s := range examples {
+        if b, err := strconv.ParseBool(s); err == nil {
+            fmt.Printf("ParseBool(%q) = %t\n", s, b)
+        } else {
+            fmt.Printf("ParseBool(%q) = error: %v\n", s, err)
+        }
     }
-    return false, syntaxError("ParseBool", str)
 }
-            </div>
-            <div class="highlight">
-                <strong>特点：</strong>使用switch语句实现O(1)时间复杂度，支持多种布尔值表示格式。
+
+// 输出:
+// ParseBool("true") = true
+// ParseBool("false") = false  
+// ParseBool("1") = true
+// ParseBool("0") = false
+// ParseBool("t") = true
+// ParseBool("f") = false</pre>
             </div>
 
-            <h3>6.2 ParseInt 函数</h3>
+            <h3>6.2 ParseInt - 整数解析（含符号和进制前缀）</h3>
+            <div class="code-title">🔢 ParseInt 完整功能演示</div>
             <div class="code-block">
-func ParseInt(s string, base int, bitSize int) (i int64, err error) {
-    // 处理符号
-    // 调用ParseUint进行无符号转换
-    // 检查范围并应用符号
+                <pre>package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func main() {
+    // 基本整数解析
+    examples := []struct {
+        str     string
+        base    int
+        bitSize int
+    }{
+        // 十进制数（含正负号）
+        {"123", 10, 64},
+        {"+456", 10, 64},
+        {"-789", 10, 64},
+        
+        // 自动检测进制（base=0）
+        {"0b1010", 0, 64},      // 二进制前缀
+        {"0B1111", 0, 64},      // 二进制前缀（大写）
+        {"0o755", 0, 64},       // 八进制前缀
+        {"0x1A2B", 0, 64},      // 十六进制前缀
+        {"0377", 0, 64},        // 传统八进制
+        
+        // 指定进制
+        {"1010", 2, 64},        // 二进制
+        {"755", 8, 64},         // 八进制
+        {"1A2B", 16, 64},       // 十六进制
+        {"ZZ", 36, 64},         // 36进制
+        
+        // 不同位大小
+        {"127", 10, 8},         // int8 范围
+        {"32767", 10, 16},      // int16 范围
+        {"-2147483648", 10, 32}, // int32 最小值
+    }
+    
+    for _, ex := range examples {
+        if val, err := strconv.ParseInt(ex.str, ex.base, ex.bitSize); err == nil {
+            fmt.Printf("ParseInt(%q, %d, %d) = %d\n", ex.str, ex.base, ex.bitSize, val)
+        } else {
+            fmt.Printf("ParseInt(%q, %d, %d) = error: %v\n", ex.str, ex.base, ex.bitSize, err)
+        }
+    }
 }
-            </div>
-            <div class="highlight">
-                <strong>特点：</strong>支持2-36进制，自动检测进制前缀（0x, 0o），严格的溢出检查。
+
+// 输出示例:
+// ParseInt("123", 10, 64) = 123
+// ParseInt("+456", 10, 64) = 456
+// ParseInt("-789", 10, 64) = -789
+// ParseInt("0b1010", 0, 64) = 10
+// ParseInt("0B1111", 0, 64) = 15
+// ParseInt("0x1A2B", 0, 64) = 6699</pre>
             </div>
 
-            <h3>6.3 ParseFloat 函数</h3>
+            <h3>6.3 ParseFloat - 浮点数解析</h3>
+            <div class="code-title">🔢 ParseFloat 多格式支持演示</div>
             <div class="code-block">
-func ParseFloat(s string, bitSize int) (float64, error) {
-    // 特殊值处理（Inf, NaN）
-    // 选择快速路径或精确算法
-    // 使用eisel-lemire或decimal算法
-}
+                <pre>package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func main() {
+    examples := []string{
+        "3.14159",
+        "-2.71828",
+        "+1.23e10",
+        "1.23E-4",
+        "inf",
+        "-Inf",
+        "NaN",
+        ".5",
+        "5.",
+        "1_234.567_89", // 支持下划线分隔符
+    }
+    
+    for _, s := range examples {
+        if f, err := strconv.ParseFloat(s, 64); err == nil {
+            fmt.Printf("ParseFloat(%q, 64) = %g\n", s, f)
+        } else {
+            fmt.Printf("ParseFloat(%q, 64) = error: %v\n", s, err)
+        }
+    }
+}</pre>
             </div>
-            <div class="highlight">
-                <strong>特点：</strong>采用eisel-lemire算法优化常见情况，使用多精度decimal处理复杂情况。
+
+            <h3>6.4 Format 系列 - 类型转字符串</h3>
+            <div class="code-title">📤 Format 系列函数使用示例</div>
+            <div class="code-block">
+                <pre>package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func main() {
+    // FormatBool
+    fmt.Printf("FormatBool(true) = %q\n", strconv.FormatBool(true))
+    fmt.Printf("FormatBool(false) = %q\n", strconv.FormatBool(false))
+    
+    // FormatInt - 不同进制
+    num := int64(255)
+    fmt.Printf("FormatInt(%d, 2) = %q\n", num, strconv.FormatInt(num, 2))   // 二进制
+    fmt.Printf("FormatInt(%d, 8) = %q\n", num, strconv.FormatInt(num, 8))   // 八进制
+    fmt.Printf("FormatInt(%d, 10) = %q\n", num, strconv.FormatInt(num, 10)) // 十进制
+    fmt.Printf("FormatInt(%d, 16) = %q\n", num, strconv.FormatInt(num, 16)) // 十六进制
+    
+    // FormatFloat - 不同格式
+    f := 3.14159265359
+    fmt.Printf("FormatFloat(%.11f, 'f', 2, 64) = %q\n", f, strconv.FormatFloat(f, 'f', 2, 64))
+    fmt.Printf("FormatFloat(%.11f, 'e', 2, 64) = %q\n", f, strconv.FormatFloat(f, 'e', 2, 64))
+    fmt.Printf("FormatFloat(%.11f, 'g', -1, 64) = %q\n", f, strconv.FormatFloat(f, 'g', -1, 64))
+}
+
+// 输出:
+// FormatBool(true) = "true"
+// FormatBool(false) = "false"
+// FormatInt(255, 2) = "11111111"
+// FormatInt(255, 8) = "377"
+// FormatInt(255, 10) = "255"
+// FormatInt(255, 16) = "ff"
+// FormatFloat(3.14159265359, 'f', 2, 64) = "3.14"
+// FormatFloat(3.14159265359, 'e', 2, 64) = "3.14e+00"
+// FormatFloat(3.14159265359, 'g', -1, 64) = "3.14159265359"</pre>
+            </div>
+
+            <h3>6.5 Append 系列 - 高效字符串构建</h3>
+            <div class="code-title">⚡ Append 系列高性能字符串构建</div>
+            <div class="code-block">
+                <pre>package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func main() {
+    // 使用Append系列函数避免多次内存分配
+    buf := make([]byte, 0, 100)
+    
+    buf = strconv.AppendBool(buf, true)
+    buf = append(buf, ' ')
+    buf = strconv.AppendInt(buf, -42, 10)
+    buf = append(buf, ' ')
+    buf = strconv.AppendFloat(buf, 3.14, 'f', 2, 64)
+    buf = append(buf, ' ')
+    buf = strconv.AppendQuote(buf, "hello world")
+    
+    fmt.Printf("结果: %s\n", buf)
+    // 输出: 结果: true -42 3.14 "hello world"
+}</pre>
+            </div>
+
+            <h3>6.6 Quote 系列 - 字符串引用和转义</h3>
+            <div class="code-title">🔤 Quote 系列字符串处理演示</div>
+            <div class="code-block">
+                <pre>package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func main() {
+    examples := []string{
+        "hello world",
+        "line1\nline2",
+        "tab\there",
+        "quote\"test",
+        "中文测试",
+        "\x00\x01\x02", // 控制字符
+    }
+    
+    for _, s := range examples {
+        quoted := strconv.Quote(s)
+        ascii := strconv.QuoteToASCII(s)
+        fmt.Printf("原文: %q\n", s)
+        fmt.Printf("Quote: %s\n", quoted)
+        fmt.Printf("QuoteToASCII: %s\n", ascii)
+        
+        // 反引用
+        if unquoted, err := strconv.Unquote(quoted); err == nil {
+            fmt.Printf("Unquote: %q\n", unquoted)
+        }
+        fmt.Println("---")
+    }
+}</pre>
+            </div>
+
+            <h3>6.7 错误处理示例</h3>
+            <div class="code-title">❌ NumError 错误处理最佳实践</div>
+            <div class="code-block">
+                <pre>package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func main() {
+    examples := []string{"abc", "999999999999999999999", "1.2.3", ""}
+    
+    for _, s := range examples {
+        if val, err := strconv.ParseInt(s, 10, 64); err != nil {
+            if numErr, ok := err.(*strconv.NumError); ok {
+                fmt.Printf("解析错误 - 函数: %s, 输入: %q, 类型: %T, 原因: %v\n", 
+                          numErr.Func, numErr.Num, numErr.Err, numErr.Err)
+            }
+        } else {
+            fmt.Printf("ParseInt(%q) = %d\n", s, val)
+        }
+    }
+}
+
+// 输出示例:
+// 解析错误 - 函数: ParseInt, 输入: "abc", 类型: *errors.errorString, 原因: invalid syntax
+// 解析错误 - 函数: ParseInt, 输入: "999999999999999999999", 类型: *errors.errorString, 原因: value out of range</pre>
             </div>
         </section>
 
