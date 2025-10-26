@@ -2,6 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+/*
+ * string转bool
+ */
+
 package strconv
 
 // ParseBool returns the boolean value represented by the string.

@@ -6,6 +6,10 @@ import (
 	"internal/stringslite"
 )
 
+/*
+ * 字符串转int,int64,int32,int16,int8,uint64
+ */
+
 // lower(c) is a lower-case letter if and only if
 // c is either that lower-case letter or the equivalent upper-case letter.
 // Instead of writing c == 'x' || c == 'X' one can write lower(c) == 'x'.
