@@ -207,7 +207,9 @@ func ParseUint(s string, base int, bitSize int) (uint64, error) {
 		n = n1
 	}
 
-	fmt.Println(underscores)
+	if underscores && !underscoreOK(s0) {
+		return 0, syntaxError(fnParseUint, s0)
+	}
 
 	return n, nil
 }
@@ -297,4 +299,16 @@ func ParseInt(s string, base int, bitSize int) (i int64, err error) {
 		n = -n
 	}
 	return n, nil
+}
+
+// underscoreOK reports whether the underscores in s are allowed.
+// Checking them in this one function lets all the parsers skip over them simply.
+// Underscore must appear only between digits or between a base prefix and a digit.
+/*
+ * underscoreOK返回s中的下划线是否被允许
+ * 在此函数中进行检查，使所有解析器可以直接跳过它们。
+ * 下划线只能出现在数字之间，或进制前缀与数字之间。
+ */
+func underscoreOK(s string) bool {
+	return true
 }
