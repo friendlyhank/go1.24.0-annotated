@@ -428,6 +428,7 @@
                                 FMT[formatBits 格式化]
                                 EISEL[eisel_lemire 快速转换]
                                 RYU[龙四算法 Ryu]
+                                SMALL[small 小数优化]
                             end
                             
                             subgraph "辅助模块"
@@ -451,7 +452,9 @@
                         FF --> RYU
                         FF --> DEC
                         FI --> FMT
+                        FI --> SMALL
                         FU --> FMT
+                        FU --> SMALL
                         
                         AB --> FB
                         AI --> FI

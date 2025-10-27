@@ -99,3 +99,9 @@ func TestParseInt64(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateBitSize(t *testing.T) {
+	out, err := ParseInt("0", 10, 67)
+	fmt.Println(out)
+	fmt.Println(err)
+}
